@@ -1,0 +1,11 @@
+name: BingoPatataPlugin
+version: '1.0.0'
+main: org.BingoPatataPlugin
+api-version: '1.21'
+authors: [ Meliory ]
+description: Plugin de un Bingo para UHC - Patata
+
+commands:
+  bingoPatata:
+    description: Comandos del plugin de BingoPatata
+    usage: /bingoPatata <subcomando>
