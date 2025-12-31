@@ -14,11 +14,8 @@ public class BingoWorldManager {
 
     private static final Map<Integer, World> loadedOverworlds = new ConcurrentHashMap<>();
     private static final Map<Integer, World> loadedNethers = new ConcurrentHashMap<>();
+    private static final Map<Integer, World> loadedEnds = new ConcurrentHashMap<>();
     private static final Map<Integer, Long> lastPlayerActivity = new ConcurrentHashMap<>();
-
-    // Configuración optimizada
-    private static final long WORLD_UNLOAD_DELAY = 300000; // 5 minutos sin jugadores
-    private static final int AUTO_SAVE_INTERVAL = 6000; // 5 minutos en ticks
 
     private static Plugin plugin;
     private static BukkitRunnable cleanupTask;
@@ -45,6 +42,12 @@ public class BingoWorldManager {
      */
     public static void loadTeamWorlds(int teamId) {
         try {
+            // Si está en modo compartido, no cargar mundos de equipos
+            if (BingoConfig.isShareWorld()) {
+                Bukkit.getLogger().info("[BingoWorldManager] Modo share_world activo - usando mundos vanilla");
+                return;
+            }
+
             Bukkit.getLogger().info("[BingoWorldManager] Cargando mundos para equipo " + teamId);
 
             // Cargar Overworld con optimizaciones
@@ -59,6 +62,13 @@ public class BingoWorldManager {
             if (netherWorld != null) {
                 loadedNethers.put(teamId, netherWorld);
                 optimizeWorldSettings(netherWorld);
+            }
+
+            // Cargar End con optimizaciones
+            World endWorld = loadOptimizedEnd(teamId);
+            if (endWorld != null) {
+                loadedEnds.put(teamId, endWorld);
+                optimizeWorldSettings(endWorld);
             }
 
             updatePlayerActivity(teamId);
@@ -133,22 +143,33 @@ public class BingoWorldManager {
         return world;
     }
 
+    private static World loadOptimizedEnd(int teamId) {
+        String worldName = "endteam" + teamId;
+        deleteUidFile(worldName);
+
+        WorldCreator creator = new WorldCreator(worldName);
+        creator.environment(World.Environment.THE_END);
+        creator.type(WorldType.NORMAL);
+        creator.generateStructures(true); // End necesita estructuras (ciudad, portal, etc.)
+
+        World world = creator.createWorld();
+        if (world != null) {
+            configureGameRules(world);
+            Bukkit.getLogger().info("[BingoWorldManager] End cargado: " + worldName);
+        }
+        return world;
+    }
+
     private static void configureGameRules(World world) {
-        // Configuración básica requerida
-        world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
-        world.setGameRule(GameRule.DO_MOB_SPAWNING, true);
+        // Configuración desde config.yml
+        world.setGameRule(GameRules.SHOW_ADVANCEMENT_MESSAGES, BingoConfig.isShowAdvancementMessages());
+        world.setGameRule(GameRules.SPAWN_MOBS, BingoConfig.isSpawnMobs());
         world.setDifficulty(Difficulty.HARD);
 
         // Optimizaciones adicionales de rendimiento
-        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, true);
-        //world.setGameRule(GameRule.DO_WEATHER_CYCLE, false); // Menos procesamiento de clima
-        //world.setGameRule(GameRule.RANDOM_TICK_SPEED, 2); // Reduce ticks aleatorios (default 3)
-        world.setGameRule(GameRule.DO_FIRE_TICK, true);
-        world.setGameRule(GameRule.MOB_GRIEFING, true);
-
-        // Configuraciones de spawn más eficientes
-        //world.setGameRule(GameRule.DO_PATROL_SPAWNING, false); // Sin patrullas innecesarias
-        //world.setGameRule(GameRule.DO_TRADER_SPAWNING, false); // Sin comerciantes errantes
+        world.setGameRule(GameRules.ADVANCE_TIME, BingoConfig.isAdvanceTime());
+        world.setGameRule(GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER, BingoConfig.getFireSpreadRadius());
+        world.setGameRule(GameRules.MOB_GRIEFING, BingoConfig.isMobGriefing());
     }
 
     private static void optimizeWorldSettings(World world) {
@@ -184,13 +205,17 @@ public class BingoWorldManager {
     }
 
     private static void cleanupUnusedWorlds() {
+        if (BingoConfig.isShareWorld()) {
+            return; // No limpiar en modo compartido
+        }
+
         long currentTime = System.currentTimeMillis();
 
         for (Map.Entry<Integer, Long> entry : lastPlayerActivity.entrySet()) {
             int teamId = entry.getKey();
             long lastActivity = entry.getValue();
 
-            if (currentTime - lastActivity > WORLD_UNLOAD_DELAY) {
+            if (currentTime - lastActivity > BingoConfig.getWorldUnloadDelay()) {
                 if (getPlayersInTeamWorlds(teamId) == 0) {
                     unloadTeamWorlds(teamId);
                     Bukkit.getLogger().info("[BingoWorldManager] Mundos del equipo " + teamId + " descargados por inactividad");
@@ -200,6 +225,10 @@ public class BingoWorldManager {
     }
 
     private static void performOptimizedSave() {
+        if (BingoConfig.isShareWorld()) {
+            return; // No guardar mundos de equipos en modo compartido
+        }
+
         // Guardar solo mundos con jugadores activos
         for (Map.Entry<Integer, World> entry : loadedOverworlds.entrySet()) {
             int teamId = entry.getKey();
@@ -208,6 +237,10 @@ public class BingoWorldManager {
                 World nether = loadedNethers.get(teamId);
                 if (nether != null) {
                     nether.save();
+                }
+                World end = loadedEnds.get(teamId);
+                if (end != null) {
+                    end.save();
                 }
             }
         }
@@ -301,6 +334,11 @@ public class BingoWorldManager {
             count += nether.getPlayers().size();
         }
 
+        World end = loadedEnds.get(teamId);
+        if (end != null) {
+            count += end.getPlayers().size();
+        }
+
         return count;
     }
 
@@ -318,7 +356,12 @@ public class BingoWorldManager {
      * Verifica si los mundos de un equipo están cargados
      */
     public static boolean isTeamWorldLoaded(int teamId) {
-        return loadedOverworlds.containsKey(teamId) && loadedNethers.containsKey(teamId);
+        if (BingoConfig.isShareWorld()) {
+            return true; // En modo compartido, siempre están "cargados"
+        }
+        return loadedOverworlds.containsKey(teamId) &&
+               loadedNethers.containsKey(teamId) &&
+               loadedEnds.containsKey(teamId);
     }
 
     /**
@@ -343,16 +386,6 @@ public class BingoWorldManager {
             }
         }
         return true;
-    }
-
-    // ==================== GETTERS DE MUNDOS ====================
-
-    public static World getTeamOverworld(int teamId) {
-        return loadedOverworlds.get(teamId);
-    }
-
-    public static World getTeamNether(int teamId) {
-        return loadedNethers.get(teamId);
     }
 
     // ==================== CONFIGURACIÓN DE MUNDOS ====================
@@ -391,6 +424,7 @@ public class BingoWorldManager {
     public static void unloadTeamWorlds(int teamId) {
         World overworld = loadedOverworlds.remove(teamId);
         World nether = loadedNethers.remove(teamId);
+        World end = loadedEnds.remove(teamId);
 
         if (overworld != null) {
             // Guardar antes de descargar
@@ -401,6 +435,11 @@ public class BingoWorldManager {
         if (nether != null) {
             nether.save();
             Bukkit.unloadWorld(nether, true);
+        }
+
+        if (end != null) {
+            end.save();
+            Bukkit.unloadWorld(end, true);
         }
 
         lastPlayerActivity.remove(teamId);
@@ -436,7 +475,10 @@ public class BingoWorldManager {
      * Obtiene el número de mundos actualmente cargados
      */
     public static int getLoadedWorldsCount() {
-        return loadedOverworlds.size() + loadedNethers.size();
+        if (BingoConfig.isShareWorld()) {
+            return 0; // En modo compartido no contamos mundos de equipos
+        }
+        return loadedOverworlds.size() + loadedNethers.size() + loadedEnds.size();
     }
 
     /**
@@ -455,6 +497,57 @@ public class BingoWorldManager {
             }
         } catch (Exception e) {
             Bukkit.getLogger().warning("[BingoWorldManager] Error eliminando uid.dat de " + worldName + ": " + e.getMessage());
+        }
+    }
+
+    // ==================== GETTERS DE MUNDOS (con soporte share_world) ====================
+
+    /**
+     * Obtiene el mundo Overworld para un equipo
+     * Si share_world = true, devuelve el mundo vanilla
+     */
+    public static World getTeamOverworld(int teamId) {
+        if (BingoConfig.isShareWorld()) {
+            return Bukkit.getWorld(BingoConfig.getVanillaOverworld());
+        }
+        return loadedOverworlds.get(teamId);
+    }
+
+    /**
+     * Obtiene el mundo Nether para un equipo
+     * Si share_world = true, devuelve el nether vanilla
+     */
+    public static World getTeamNether(int teamId) {
+        if (BingoConfig.isShareWorld()) {
+            return Bukkit.getWorld(BingoConfig.getVanillaNether());
+        }
+        return loadedNethers.get(teamId);
+    }
+
+    /**
+     * Obtiene el mundo End para un equipo
+     * Si share_world = true, devuelve el end vanilla
+     */
+    public static World getTeamEnd(int teamId) {
+        if (BingoConfig.isShareWorld()) {
+            return Bukkit.getWorld(BingoConfig.getVanillaEnd());
+        }
+        return loadedEnds.get(teamId);
+    }
+
+    /**
+     * Obtiene el mundo según el environment y teamId
+     */
+    public static World getTeamWorld(int teamId, World.Environment environment) {
+        switch (environment) {
+            case NORMAL:
+                return getTeamOverworld(teamId);
+            case NETHER:
+                return getTeamNether(teamId);
+            case THE_END:
+                return getTeamEnd(teamId);
+            default:
+                return null;
         }
     }
 

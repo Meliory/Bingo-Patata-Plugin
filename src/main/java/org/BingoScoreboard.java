@@ -1,10 +1,15 @@
 package org;
 
+import io.papermc.paper.scoreboard.numbers.NumberFormat;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.*;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 
 import java.util.*;
 
@@ -99,9 +104,23 @@ public class BingoScoreboard {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         Scoreboard scoreboard = manager.getNewScoreboard();
 
-        Objective objective = scoreboard.registerNewObjective("bingo", "dummy",
-                ChatColor.GOLD + "BINGO PATATA T.7");
+        // Obtener título desde config usando MiniMessage
+        Component title = MessageManager.get("scoreboard.title");
+        Objective objective = scoreboard.registerNewObjective("bingo", "dummy", title);
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+        // QUITAR NÚMEROS ROJOS - Múltiples métodos para máxima compatibilidad
+        try {
+            // Método 1: numberFormat (Paper 1.20.5+)
+            objective.numberFormat(NumberFormat.blank());
+        } catch (Exception e) {
+            try {
+                // Método 2: setDisplayName con formato vacío
+                objective.setRenderType(RenderType.INTEGER);
+            } catch (Exception ex) {
+                Bukkit.getLogger().warning("[BingoScoreboard] No se pudo ocultar números del scoreboard: " + ex.getMessage());
+            }
+        }
 
         // Guardar el scoreboard del equipo
         teamScoreboards.put(team, scoreboard);
@@ -157,10 +176,18 @@ public class BingoScoreboard {
 
         int score = 40;
 
-        //Título Equipo
-        objective.getScore("Equipo: " + team.getColoredName()).setScore(score--);
-        objective.getScore("").setScore(score--);
-        objective.getScore("§" + (200 * 2) + "§r").setScore(score--);
+        //Título Equipo - Usar mensaje del config con color del equipo
+        var teamPlaceholders = MessageManager.builder()
+                .add("team", team.getName())
+                .add("team_color", team.getColorTag())
+                .build();
+        Component teamComponent = MessageManager.get("scoreboard.line_team", teamPlaceholders);
+        String teamLine = LegacyComponentSerializer.legacySection().serialize(teamComponent);
+        objective.getScore(teamLine).setScore(score--);
+
+        // Líneas separadoras invisibles usando códigos de color únicos (invisibles pero únicos)
+        objective.getScore(ChatColor.RESET + "").setScore(score--);
+        objective.getScore(ChatColor.RESET + " ").setScore(score--);
 
         //Filas de items con doble espaciado
         for(int i = 0; i <= 4; i++){
@@ -185,20 +212,49 @@ public class BingoScoreboard {
             }
         }
 
-        objective.getScore(" ").setScore(score--);
+        // Línea separadora invisible
+        objective.getScore(ChatColor.RESET + "  ").setScore(score--);
 
-        // Progreso
-        String progress = ChatColor.YELLOW + "Items: " + ChatColor.GREEN +
-                teamItems.size() + ChatColor.GRAY + "/" + ChatColor.WHITE + bingoItems.size();
-        objective.getScore(progress).setScore(score--);
+        // Progreso - Usar mensajes decorados del config
+        var itemsPlaceholders = MessageManager.builder()
+                .add("items", teamItems.size())
+                .build();
+        Component itemsComponent = MessageManager.get("scoreboard.line_items", itemsPlaceholders);
+        String itemsLine = LegacyComponentSerializer.legacySection().serialize(itemsComponent);
+        objective.getScore(itemsLine).setScore(score--);
 
-        String points = ChatColor.YELLOW + "Puntos: " + ChatColor.GREEN + teamPoints;
-        objective.getScore(points).setScore(score--);
+        var pointsPlaceholders = MessageManager.builder()
+                .add("points", teamPoints)
+                .build();
+        Component pointsComponent = MessageManager.get("scoreboard.line_points", pointsPlaceholders);
+        String pointsLine = LegacyComponentSerializer.legacySection().serialize(pointsComponent);
+        objective.getScore(pointsLine).setScore(score--);
     }
 
     public static void updateAllTeamScoreboards() {
         for (Team team : teamScoreboards.keySet()) {
             updateTeamScoreboard(team);
+        }
+    }
+
+    /**
+     * Recarga los títulos y contenido de todos los scoreboards
+     * Se usa cuando se hace reload de la configuración
+     */
+    public static void reloadAllScoreboards() {
+        for (Team team : teamScoreboards.keySet()) {
+            Scoreboard scoreboard = teamScoreboards.get(team);
+            if (scoreboard == null) continue;
+
+            Objective objective = scoreboard.getObjective("bingo");
+            if (objective == null) continue;
+
+            // Actualizar título desde config
+            Component newTitle = MessageManager.get("scoreboard.title");
+            objective.displayName(newTitle);
+
+            // Actualizar contenido
+            updateTeamScoreboardContent(team);
         }
     }
 
