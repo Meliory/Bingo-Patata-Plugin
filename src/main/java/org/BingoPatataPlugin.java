@@ -30,6 +30,7 @@ public final class BingoPatataPlugin extends JavaPlugin {
         this.getCommand("bingoPatata").setTabCompleter(commands);
 
         BingoWorldManager.initialize(this);
+        BingoLogger.initialize();
     }
 
     @Override

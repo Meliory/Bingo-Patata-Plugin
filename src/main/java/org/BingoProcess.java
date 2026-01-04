@@ -15,22 +15,28 @@ import java.util.UUID;
 
 public class BingoProcess {
     public static void processItemPlayer(Player player, Material item) {
-        // Si la partida no ha empezado, no contar items
-        if(!BingoTimer.isRunning()) {
-            return;
-        }
+        try {
+            // Si la partida no ha empezado, no contar items
+            if(!BingoTimer.isRunning()) {
+                return;
+            }
 
-        Team team = TeamManager.getplayerTeam(player);
+            if(player == null || item == null) {
+                Bukkit.getLogger().severe("[BingoProcess] Error crítico: player o item es null");
+                return;
+            }
 
-        //Si no está en un equipo, fuera
-        if(team == null){
-            return;
-        }
+            Team team = TeamManager.getplayerTeam(player);
 
-        //Si el equipo tiene el objeto, fuera
-        if(BingoData.hasTeamItem(team, item)){
-            return;
-        }
+            //Si no está en un equipo, fuera
+            if(team == null){
+                return;
+            }
+
+            //Si el equipo tiene el objeto, fuera
+            if(BingoData.hasTeamItem(team, item)){
+                return;
+            }
 
         // Datos antes de añadir el item
         Set<Material> teamItems = BingoData.getTeamItems(team);
@@ -51,6 +57,10 @@ public class BingoProcess {
 
         // Actualizar scoreboard
         BingoScoreboard.updateTeamScoreboard(team);
+
+        // Registrar en el log
+        String gameTime = BingoTimer.getActualTimeFormatted();
+        BingoLogger.logItem(team, player, item, gameTime);
 
         // Datos después de añadir el item
         Set<Material> teamItemsAfter = BingoData.getTeamItems(team);
@@ -104,6 +114,7 @@ public class BingoProcess {
 
             for (BingoData.CompletedLine line : newLines) {
                 String messageKey;
+                String lineTypeStr = "";
 
                 // Determinar el tipo de mensaje según el tipo de línea
                 switch (line.getType()) {
@@ -111,20 +122,26 @@ public class BingoProcess {
                         messageKey = BingoConfig.isBroadcastItemAnnouncements()
                                 ? "item.line_completed_horizontal_broadcast"
                                 : "item.line_completed_horizontal_team";
+                        lineTypeStr = "HORIZONTAL";
                         break;
                     case VERTICAL:
                         messageKey = BingoConfig.isBroadcastItemAnnouncements()
                                 ? "item.line_completed_vertical_broadcast"
                                 : "item.line_completed_vertical_team";
+                        lineTypeStr = "VERTICAL";
                         break;
                     case DIAGONAL:
                         messageKey = BingoConfig.isBroadcastItemAnnouncements()
                                 ? "item.line_completed_diagonal_broadcast"
                                 : "item.line_completed_diagonal_team";
+                        lineTypeStr = "DIAGONAL";
                         break;
                     default:
                         continue; // Por si acaso
                 }
+
+                // Registrar línea completada en el log
+                BingoLogger.logEvent(team.getName() + " completó LÍNEA " + lineTypeStr, gameTime);
 
                 // Enviar el mensaje
                 if (BingoConfig.isBroadcastItemAnnouncements()) {
@@ -145,6 +162,9 @@ public class BingoProcess {
 
         // Detectar si se completó el bingo (todos los items)
         if(itemsBefore < bingoItems.size() && itemsAfter == bingoItems.size()) {
+            // Registrar BINGO COMPLETO en el log
+            BingoLogger.logEvent(team.getName() + " completó el BINGO COMPLETO! (25/25 items)", gameTime);
+
             var bingoPlaceholders = MessageManager.builder()
                     .add("team", team.getName())
                     .add("team_color", team.getColorTag())
@@ -174,6 +194,12 @@ public class BingoProcess {
                     }
                 }, 100L); // 5 segundos de delay
             }
+        }
+
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoProcess] Error crítico en processItemPlayer - Jugador: " +
+                (player != null ? player.getName() : "null") + " Item: " + (item != null ? item.name() : "null"));
+            e.printStackTrace();
         }
     }
 
@@ -211,17 +237,25 @@ public class BingoProcess {
     }
 
     private static void removeItemFromInventory(Player player, Material item) {
-        PlayerInventory inventory = player.getInventory();
-        for(ItemStack itemStack : inventory.getContents()) {
-            if(itemStack != null && itemStack.getType() == item){
-                if(itemStack.getAmount() > 1) {
-                    itemStack.setAmount(itemStack.getAmount() - 1);
-                } else {
-                    inventory.remove(itemStack);
+        try {
+            if(player == null || item == null) return;
+
+            PlayerInventory inventory = player.getInventory();
+            for(ItemStack itemStack : inventory.getContents()) {
+                if(itemStack != null && itemStack.getType() == item){
+                    if(itemStack.getAmount() > 1) {
+                        itemStack.setAmount(itemStack.getAmount() - 1);
+                    } else {
+                        inventory.remove(itemStack);
+                    }
+                    //player.sendMessage("Se ha eliminado de tu inventario");
+                    break;
                 }
-                //player.sendMessage("Se ha eliminado de tu inventario");
-                break;
             }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoProcess] Error crítico en removeItemFromInventory - Jugador: " +
+                (player != null ? player.getName() : "null") + " Item: " + (item != null ? item.name() : "null"));
+            e.printStackTrace();
         }
     }
 }

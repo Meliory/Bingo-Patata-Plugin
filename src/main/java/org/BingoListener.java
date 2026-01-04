@@ -22,48 +22,63 @@ public class BingoListener implements Listener {
 
     @EventHandler
     public void onItemPickup(EntityPickupItemEvent event) {
-        if(event.getEntity() instanceof Player){
-            Player player = (Player) event.getEntity();
-            Material item = event.getItem().getItemStack().getType();
+        try {
+            if(event.getEntity() instanceof Player){
+                Player player = (Player) event.getEntity();
+                Material item = event.getItem().getItemStack().getType();
 
-            if(BingoCard.isItemOnBingo(item)){
-                BingoProcess.processItemPlayer(player, item);
+                if(BingoCard.isItemOnBingo(item)){
+                    BingoProcess.processItemPlayer(player, item);
+                }
             }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoListener] Error crítico en onItemPickup: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     @EventHandler
     public void onItemCrafted(CraftItemEvent event) {
-        if(event.getWhoClicked() instanceof Player){
-            Player player = (Player) event.getWhoClicked();
-            Material item = event.getRecipe().getResult().getType();
+        try {
+            if(event.getWhoClicked() instanceof Player){
+                Player player = (Player) event.getWhoClicked();
+                Material item = event.getRecipe().getResult().getType();
 
-            if(BingoCard.isItemOnBingo(item)){
-                BingoProcess.processItemPlayer(player, item);
+                if(BingoCard.isItemOnBingo(item)){
+                    BingoProcess.processItemPlayer(player, item);
+                }
             }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoListener] Error crítico en onItemCrafted: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     @EventHandler
     public void inInventoryClick(InventoryClickEvent event){
-        if(!(event.getWhoClicked() instanceof Player)) return;
-        if(event.getCurrentItem() == null) return;
+        try {
+            if(!(event.getWhoClicked() instanceof Player)) return;
+            if(event.getCurrentItem() == null) return;
 
-        Player player = (Player) event.getWhoClicked();
-        InventoryAction action = event.getAction();
+            Player player = (Player) event.getWhoClicked();
+            InventoryAction action = event.getAction();
 
-        if(!isPlayerInventory(event.getClickedInventory(), player)) {
-            Material item = event.getCurrentItem().getType();
+            if(!isPlayerInventory(event.getClickedInventory(), player)) {
+                Material item = event.getCurrentItem().getType();
 
-            if (action == InventoryAction.PICKUP_ALL ||
-                    action == InventoryAction.PICKUP_HALF ||
-                    action == InventoryAction.PICKUP_ONE ||
-                    action == InventoryAction.PICKUP_SOME ||
-                    action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-                if (BingoCard.isItemOnBingo(item)) {
-                    BingoProcess.processItemPlayer(player, item);
+                if (action == InventoryAction.PICKUP_ALL ||
+                        action == InventoryAction.PICKUP_HALF ||
+                        action == InventoryAction.PICKUP_ONE ||
+                        action == InventoryAction.PICKUP_SOME ||
+                        action == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+                    if (BingoCard.isItemOnBingo(item)) {
+                        BingoProcess.processItemPlayer(player, item);
+                    }
                 }
             }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoListener] Error crítico en inInventoryClick: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -75,14 +90,19 @@ public class BingoListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event){
-        Player player = event.getPlayer();
-        if(TeamManager.getplayerTeam(player) != null){
-            BingoScoreboard.showBingoCard(player);
-        }
-        Team team = TeamManager.getplayerTeam(event.getPlayer());
-        if(team != null){
-            int teamID = team.getID();
-            BingoWorldManager.onPlayerJoinTeamWorld(event.getPlayer(), teamID);
+        try {
+            Player player = event.getPlayer();
+            if(TeamManager.getplayerTeam(player) != null){
+                BingoScoreboard.showBingoCard(player);
+            }
+            Team team = TeamManager.getplayerTeam(event.getPlayer());
+            if(team != null){
+                int teamID = team.getID();
+                BingoWorldManager.onPlayerJoinTeamWorld(event.getPlayer(), teamID);
+            }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoListener] Error crítico en onPlayerJoin para jugador " + event.getPlayer().getName() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }

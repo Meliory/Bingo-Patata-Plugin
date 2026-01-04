@@ -39,11 +39,10 @@ public class TeamManager {
     }
 
     public static Team getTeamById(int id){
-        if(teams.get(id) != null){
+        if(id >= 0 && id < teams.size()){
             return teams.get(id);
-        } else {
-            return null;
         }
+        return null;
     }
 
     public static Team getplayerTeam(Player player){

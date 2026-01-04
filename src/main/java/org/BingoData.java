@@ -164,8 +164,16 @@ public class BingoData {
     }
 
     public static void resetTeamItems(Team team){
+        if(team == null) return;
+
         String teamName = team.getName();
-        teamsItems.get(teamName).clear();
+        Set<Material> items = teamsItems.get(teamName);
+
+        if(items != null){
+            items.clear();
+        } else {
+            teamsItems.put(teamName, new HashSet<>());
+        }
 
         BingoScoreboard.updateTeamScoreboard(team);
     }

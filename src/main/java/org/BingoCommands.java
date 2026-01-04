@@ -152,6 +152,9 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Resetear logs de items (borrar y crear nuevo)
+        BingoLogger.resetLog();
+
         if(!BingoWorldManager.areActiveWorldsLoaded()) {
             sender.sendMessage("Cargando mundos necesarios...");
             BingoWorldManager.loadAllActiveTeamWorlds();
@@ -408,8 +411,13 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
         ChatColor teamColor = team.getColor();
         sender.sendMessage(teamColor + " -- " + team.getName() + " --");
         List<UUID> players = team.getPlayers();
-        for(UUID player : players){
-            sender.sendMessage("  - " + Objects.requireNonNull(Bukkit.getPlayer(player)).getName());
+        for(UUID playerUUID : players){
+            Player player = Bukkit.getPlayer(playerUUID);
+            if(player != null && player.isOnline()) {
+                sender.sendMessage("  - " + player.getName());
+            } else {
+                sender.sendMessage("  - " + ChatColor.GRAY + "[Offline: " + playerUUID + "]");
+            }
         }
     }
 
@@ -538,47 +546,68 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     }
 
     private boolean giveItemTeam(CommandSender sender, String[] args){
-        if(args.length < 3){
+        if(args.length < 4){
             sender.sendMessage("Usa: /bingo card give_item <team_name> <item_name>");
             return true;
         }
 
         String teamName = args[2];
-        Material item = Material.valueOf(args[3].toUpperCase());
+        Team team = TeamManager.getTeamByName(teamName);
 
-        Bukkit.broadcastMessage(Arrays.toString(args));
-        Bukkit.broadcastMessage(item.name());
-
-        if(TeamManager.getTeamByName(teamName) == null ){
-            sender.sendMessage("No se han encontrado el team");
-        } else if(item == null){
-            sender.sendMessage("No se han encontrado el item");
-        } else if(!BingoCard.isItemOnBingo(item)){
-            sender.sendMessage("El item no está dentro de la carta actual");
-        } else {
-            BingoProcess.processItemTeam(Objects.requireNonNull(TeamManager.getTeamByName(teamName)), item);
-            sender.sendMessage("Se ha dado el item");
+        if(team == null){
+            sender.sendMessage("No se ha encontrado el team");
+            return true;
         }
+
+        try {
+            Material item = Material.valueOf(args[3].toUpperCase());
+
+            if(!BingoCard.isItemOnBingo(item)){
+                sender.sendMessage("El item no está dentro de la carta actual");
+                return true;
+            }
+
+            BingoProcess.processItemTeam(team, item);
+            sender.sendMessage("Se ha dado el item");
+
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(ChatColor.RED + "Material no válido: " + args[3]);
+            Bukkit.getLogger().severe("[BingoCommands] Error en giveItemTeam - Material inválido: " + args[3]);
+        }
+
         return true;
     }
 
     private boolean removeItemTeam(CommandSender sender, String[] args){
-        if(args.length < 3){
+        if(args.length < 4){
             sender.sendMessage("Usa: /bingo card remove_item <team_name> <item_name>");
             return true;
         }
 
         String teamName = args[2];
-        Material item = Material.valueOf(args[3].toUpperCase());
+        Team team = TeamManager.getTeamByName(teamName);
 
-        if(TeamManager.getTeamByName(teamName) == null ){
-            sender.sendMessage("No se han encontrado el team");
-        } else if(!BingoCard.isItemOnBingo(item)){
-            sender.sendMessage("El item no está dentro de la carta actual");
-        } else {
-            BingoProcess.removeItemTeam(Objects.requireNonNull(TeamManager.getTeamByName(teamName)), item);
-            sender.sendMessage("Se ha quitado el item");
+        if(team == null){
+            sender.sendMessage("No se ha encontrado el team");
+            return true;
         }
+
+        try {
+            Material item = Material.valueOf(args[3].toUpperCase());
+
+            if(!BingoCard.isItemOnBingo(item)){
+                sender.sendMessage("El item no está dentro de la carta actual");
+                return true;
+            }
+
+            BingoProcess.removeItemTeam(team, item);
+            sender.sendMessage("Se ha quitado el item");
+
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(ChatColor.RED + "Material no válido: " + args[3]);
+            Bukkit.getLogger().severe("[BingoCommands] Error en removeItemTeam - Material inválido: " + args[3]);
+        }
+
         return true;
     }
 
@@ -730,7 +759,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
                     player.setGameMode(GameMode.ADVENTURE);
                     BingoScoreboard.hideBingoCard(player);
 
-                    org.bukkit.Location spawnLocation = new org.bukkit.Location(world, 1690, world.getHighestBlockYAt(1690, 371) + 2, 371);
+                    org.bukkit.Location spawnLocation = new org.bukkit.Location(world, 0, world.getHighestBlockYAt(0, 0) + 2, 0);
                     spawnLocation.setYaw(0);
                     spawnLocation.setPitch(0);
 

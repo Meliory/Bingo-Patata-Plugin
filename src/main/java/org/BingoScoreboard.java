@@ -132,11 +132,19 @@ public class BingoScoreboard {
     }
 
     public static void updateTeamScoreboard(Team team) {
-        if (!teamScoreboards.containsKey(team)) {
-            return; // No tiene scoreboard, no actualizar
-        }
+        try {
+            if(team == null) return;
 
-        updateTeamScoreboardContent(team);
+            if (!teamScoreboards.containsKey(team)) {
+                return; // No tiene scoreboard, no actualizar
+            }
+
+            updateTeamScoreboardContent(team);
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoScoreboard] Error crítico en updateTeamScoreboard - Team: " +
+                (team != null ? team.getName() : "null"));
+            e.printStackTrace();
+        }
     }
 
     /*public static void createBingoScoreboard(Player player) {
@@ -159,22 +167,28 @@ public class BingoScoreboard {
     }*/
 
     private static void updateTeamScoreboardContent(Team team) {
-        Scoreboard scoreboard = teamScoreboards.get(team);
-        if (scoreboard == null) return;
+        try {
+            if(team == null) {
+                Bukkit.getLogger().severe("[BingoScoreboard] Error crítico: team es null en updateTeamScoreboardContent");
+                return;
+            }
 
-        Objective objective = scoreboard.getObjective("bingo");
-        if (objective == null) return;
+            Scoreboard scoreboard = teamScoreboards.get(team);
+            if (scoreboard == null) return;
 
-        // Limpiar scoreboard anterior
-        for (String entry : scoreboard.getEntries()) {
-            scoreboard.resetScores(entry);
-        }
+            Objective objective = scoreboard.getObjective("bingo");
+            if (objective == null) return;
 
-        Set<Material> teamItems = BingoData.getTeamItems(team);
-        int teamPoints = BingoData.getTeamPoints(team);
-        List<Material> bingoItems = BingoCard.getBingoItems();
+            // Limpiar scoreboard anterior
+            for (String entry : scoreboard.getEntries()) {
+                scoreboard.resetScores(entry);
+            }
 
-        int score = 40;
+            Set<Material> teamItems = BingoData.getTeamItems(team);
+            int teamPoints = BingoData.getTeamPoints(team);
+            List<Material> bingoItems = BingoCard.getBingoItems();
+
+            int score = 40;
 
         //Título Equipo - Usar mensaje del config con color del equipo
         var teamPlaceholders = MessageManager.builder()
@@ -229,6 +243,12 @@ public class BingoScoreboard {
         Component pointsComponent = MessageManager.get("scoreboard.line_points", pointsPlaceholders);
         String pointsLine = LegacyComponentSerializer.legacySection().serialize(pointsComponent);
         objective.getScore(pointsLine).setScore(score--);
+
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoScoreboard] Error crítico en updateTeamScoreboardContent - Team: " +
+                (team != null ? team.getName() : "null"));
+            e.printStackTrace();
+        }
     }
 
     public static void updateAllTeamScoreboards() {
