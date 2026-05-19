@@ -8,49 +8,230 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class BingoProcess {
     public static void processItemPlayer(Player player, Material item) {
-        Team team = TeamManager.getplayerTeam(player);
+        try {
+            // Si la partida no ha empezado, no contar items
+            if(!BingoTimer.isRunning()) {
+                return;
+            }
 
-        //Si no está en un equipo, fuera
-        if(team == null){
-            //player.sendMessage(ChatColor.RED + "No estás en un equipo");
-            return;
-        }
+            // Si la partida está en pausa, no contar items
+            if(BingoTimer.isPaused()) {
+                return;
+            }
 
-        //Si el equipo tiene el objeto, fuera
-        if(BingoData.hasTeamItem(team, item)){
-            //player.sendMessage(ChatColor.BLUE + "You already have that item!");
-            return;
-        }
+            if(player == null || item == null) {
+                Bukkit.getLogger().severe("[BingoProcess] Error crítico: player o item es null");
+                return;
+            }
 
-        //player.sendMessage("Has conseguido el siguiente item: " + item.toString());
+            Team team = TeamManager.getplayerTeam(player);
 
+            //Si no está en un equipo, fuera
+            if(team == null){
+                return;
+            }
+
+            //Si el equipo tiene el objeto, fuera
+            if(BingoData.hasTeamItem(team, item)){
+                return;
+            }
+
+        // Datos antes de añadir el item
+        Set<Material> teamItems = BingoData.getTeamItems(team);
+        List<Material> bingoItems = BingoCard.getBingoItems();
+        int linesBefore = BingoData.getCompletedLinesCount(teamItems, bingoItems);
+        int itemsBefore = teamItems.size();
+
+        // Hacer una COPIA del Set para poder comparar después
+        Set<Material> teamItemsCopy = new HashSet<>(teamItems);
+
+        // Eliminar item del inventario después de 1 tick
         Bukkit.getScheduler().runTaskLater(BingoPatataPlugin.getInstance(), () -> {
             removeItemFromInventory(player, item);
         },1L);
 
+        // Añadir item al equipo
         BingoData.addTeamItem(team, item);
 
+        // Actualizar scoreboard
         BingoScoreboard.updateTeamScoreboard(team);
 
-        for(UUID uuid : team.getPlayers()){
-            Player teamplayer =  Bukkit.getPlayer(uuid);
-            if(teamplayer != null && teamplayer.isOnline()){
-                teamplayer.sendMessage(
-                        "[" + BingoTimer.getActualTimeFormatted() + " | " + BingoData.getTeamItems(team).size() + "/25] " +
-                        team.getColor() + player.getName() + ChatColor.WHITE + " ha conseguido [" + item.name() + "]"
-                );
+        // Registrar en el log
+        String gameTime = BingoTimer.getActualTimeFormatted();
+        BingoLogger.logItem(team, player, item, gameTime);
 
-                teamplayer.playSound(
-                        player.getLocation(),
-                        Sound.ENTITY_PLAYER_LEVELUP,
-                        1.0f,
-                        1.0f
-                );
+        // Datos después de añadir el item
+        Set<Material> teamItemsAfter = BingoData.getTeamItems(team);
+        int linesAfter = BingoData.getCompletedLinesCount(teamItemsAfter, bingoItems);
+        int itemsAfter = teamItemsAfter.size();
+
+        // Preparar placeholders para el mensaje
+        var placeholders = MessageManager.builder()
+                .add("player", player.getName())
+                .add("team", team.getName())
+                .add("team_color", team.getColorTag())
+                .add("item", item.name())
+                .build();
+
+        // Anunciar item conseguido
+        if (BingoConfig.isBroadcastItemAnnouncements()) {
+            MessageManager.broadcast("item.obtained_broadcast", placeholders);
+        } else {
+            MessageManager.broadcastToTeam(team, "item.obtained_team", placeholders);
+        }
+
+        // Sonido para el equipo que consiguió (positivo) - SIEMPRE
+        for(UUID uuid : team.getPlayers()){
+            Player teamPlayer = Bukkit.getPlayer(uuid);
+            if(teamPlayer != null && teamPlayer.isOnline()){
+                teamPlayer.playSound(teamPlayer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
             }
+        }
+
+        // Sonido para otros equipos (negativo y dramático) - SIEMPRE
+        for(Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            if(!team.HasPlayer(onlinePlayer.getUniqueId())) {
+                onlinePlayer.playSound(onlinePlayer.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.6f, 1.2f);
+            }
+        }
+
+        // Detectar qué líneas nuevas se completaron
+        Set<BingoData.CompletedLine> linesBef = BingoData.getCompletedLines(teamItemsCopy, bingoItems);
+        Set<BingoData.CompletedLine> linesAft = BingoData.getCompletedLines(teamItemsAfter, bingoItems);
+
+        // Encontrar las líneas nuevas (las que están en linesAft pero no en linesBef)
+        Set<BingoData.CompletedLine> newLines = new HashSet<>(linesAft);
+        newLines.removeAll(linesBef);
+
+        // Anunciar cada línea completada por separado
+        if (!newLines.isEmpty()) {
+            var linePlaceholders = MessageManager.builder()
+                    .add("team", team.getName())
+                    .add("team_color", team.getColorTag())
+                    .build();
+
+            for (BingoData.CompletedLine line : newLines) {
+                String messageKey;
+                String lineTypeStr = "";
+
+                // Determinar el tipo de mensaje según el tipo de línea
+                switch (line.getType()) {
+                    case HORIZONTAL:
+                        messageKey = BingoConfig.isBroadcastItemAnnouncements()
+                                ? "item.line_completed_horizontal_broadcast"
+                                : "item.line_completed_horizontal_team";
+                        lineTypeStr = "HORIZONTAL";
+                        break;
+                    case VERTICAL:
+                        messageKey = BingoConfig.isBroadcastItemAnnouncements()
+                                ? "item.line_completed_vertical_broadcast"
+                                : "item.line_completed_vertical_team";
+                        lineTypeStr = "VERTICAL";
+                        break;
+                    case DIAGONAL:
+                        messageKey = BingoConfig.isBroadcastItemAnnouncements()
+                                ? "item.line_completed_diagonal_broadcast"
+                                : "item.line_completed_diagonal_team";
+                        lineTypeStr = "DIAGONAL";
+                        break;
+                    default:
+                        continue; // Por si acaso
+                }
+
+                // Registrar línea completada en el log
+                BingoLogger.logEvent(team.getName() + " completó LÍNEA " + lineTypeStr, gameTime);
+
+                // Enviar el mensaje
+                if (BingoConfig.isBroadcastItemAnnouncements()) {
+                    MessageManager.broadcast(messageKey, linePlaceholders);
+                } else {
+                    MessageManager.broadcastToTeam(team, messageKey, linePlaceholders);
+                }
+
+                // Sonido especial para línea completada
+                for(UUID uuid : team.getPlayers()){
+                    Player teamPlayer = Bukkit.getPlayer(uuid);
+                    if(teamPlayer != null && teamPlayer.isOnline()){
+                        teamPlayer.playSound(teamPlayer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                    }
+                }
+            }
+
+            // MODO SPEEDRUN: Si el objetivo es completar una línea, terminar la partida
+            if(BingoConfig.isSpeedrunMode() && "line".equalsIgnoreCase(BingoConfig.getSpeedrunGoal())) {
+                Bukkit.getScheduler().runTaskLater(BingoPatataPlugin.getInstance(), () -> {
+                    BingoTimer.stopTimer();
+                    Bukkit.broadcastMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡SPEEDRUN COMPLETADO!");
+                    Bukkit.broadcastMessage(ChatColor.YELLOW + "Equipo " + team.getColoredName() + ChatColor.YELLOW + " completó una línea!");
+                    Bukkit.broadcastMessage(ChatColor.GRAY + "Tiempo final: " + ChatColor.WHITE + BingoTimer.getActualTimeFormatted());
+                    for(Player p : Bukkit.getOnlinePlayers()) {
+                        p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+                    }
+                }, 100L); // 5 segundos de delay
+                return; // Salir para evitar procesar más lógica
+            }
+        }
+
+        // Detectar si se completó el bingo (todos los items)
+        if(itemsBefore < bingoItems.size() && itemsAfter == bingoItems.size()) {
+            // Registrar BINGO COMPLETO en el log
+            BingoLogger.logEvent(team.getName() + " completó el BINGO COMPLETO! (25/25 items)", gameTime);
+
+            var bingoPlaceholders = MessageManager.builder()
+                    .add("team", team.getName())
+                    .add("team_color", team.getColorTag())
+                    .build();
+
+            if (BingoConfig.isBroadcastItemAnnouncements()) {
+                MessageManager.broadcast("item.bingo_completed_broadcast", bingoPlaceholders);
+            } else {
+                MessageManager.broadcastToTeam(team, "item.bingo_completed_team", bingoPlaceholders);
+            }
+
+            // Sonido épico para bingo completo
+            for(UUID uuid : team.getPlayers()){
+                Player teamPlayer = Bukkit.getPlayer(uuid);
+                if(teamPlayer != null && teamPlayer.isOnline()){
+                    teamPlayer.playSound(teamPlayer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 0.5f);
+                }
+            }
+
+            // Terminar partida si está configurado (modo normal) o si es modo speedrun con objetivo bingo
+            boolean shouldEndGame = BingoConfig.isEndGameOnBingoComplete() ||
+                                   (BingoConfig.isSpeedrunMode() && "bingo".equalsIgnoreCase(BingoConfig.getSpeedrunGoal()));
+
+            if(shouldEndGame) {
+                Bukkit.getScheduler().runTaskLater(BingoPatataPlugin.getInstance(), () -> {
+                    BingoTimer.stopTimer();
+
+                    if(BingoConfig.isSpeedrunMode()) {
+                        Bukkit.broadcastMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡SPEEDRUN COMPLETADO!");
+                        Bukkit.broadcastMessage(ChatColor.YELLOW + "Equipo " + team.getColoredName() + ChatColor.YELLOW + " completó el bingo completo!");
+                        Bukkit.broadcastMessage(ChatColor.GRAY + "Tiempo final: " + ChatColor.WHITE + BingoTimer.getActualTimeFormatted());
+                    } else {
+                        for(Player p : Bukkit.getOnlinePlayers()) {
+                            p.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡PARTIDA TERMINADA!");
+                        }
+                    }
+
+                    for(Player p : Bukkit.getOnlinePlayers()) {
+                        p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+                    }
+                }, 100L); // 5 segundos de delay
+            }
+        }
+
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoProcess] Error crítico en processItemPlayer - Jugador: " +
+                (player != null ? player.getName() : "null") + " Item: " + (item != null ? item.name() : "null"));
+            e.printStackTrace();
         }
     }
 
@@ -88,17 +269,25 @@ public class BingoProcess {
     }
 
     private static void removeItemFromInventory(Player player, Material item) {
-        PlayerInventory inventory = player.getInventory();
-        for(ItemStack itemStack : inventory.getContents()) {
-            if(itemStack != null && itemStack.getType() == item){
-                if(itemStack.getAmount() > 1) {
-                    itemStack.setAmount(itemStack.getAmount() - 1);
-                } else {
-                    inventory.remove(itemStack);
+        try {
+            if(player == null || item == null) return;
+
+            PlayerInventory inventory = player.getInventory();
+            for(ItemStack itemStack : inventory.getContents()) {
+                if(itemStack != null && itemStack.getType() == item){
+                    if(itemStack.getAmount() > 1) {
+                        itemStack.setAmount(itemStack.getAmount() - 1);
+                    } else {
+                        inventory.remove(itemStack);
+                    }
+                    //player.sendMessage("Se ha eliminado de tu inventario");
+                    break;
                 }
-                //player.sendMessage("Se ha eliminado de tu inventario");
-                break;
             }
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoProcess] Error crítico en removeItemFromInventory - Jugador: " +
+                (player != null ? player.getName() : "null") + " Item: " + (item != null ? item.name() : "null"));
+            e.printStackTrace();
         }
     }
 }

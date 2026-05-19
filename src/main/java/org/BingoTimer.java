@@ -15,8 +15,10 @@ import java.util.Set;
 public class BingoTimer {
 
     private static BukkitRunnable timerTask;
-    private static int timeLeftInSeconds;
+    private static int timeLeftInSeconds; // Modo normal: tiempo restante
+    private static int timeElapsedSeconds; // Modo speedrun: tiempo transcurrido
     private static boolean isRunning = false;
+    private static boolean isPaused = false;
 
     private static final int TOTAL_time = 3 * 60 * 60;
 
@@ -36,7 +38,11 @@ public class BingoTimer {
             return;
         }
 
-        timeLeftInSeconds = TOTAL_time;
+        if(BingoConfig.isSpeedrunMode()) {
+            timeElapsedSeconds = 0; // Modo speedrun: empezar en 0
+        } else {
+            timeLeftInSeconds = TOTAL_time; // Modo normal: empezar en tiempo total
+        }
         setupTimer();
     }
 
@@ -57,20 +63,33 @@ public class BingoTimer {
         timerTask = new BukkitRunnable() {
             @Override
             public void run() {
-                //Si el tiempo se acabó
-                if(timeLeftInSeconds <= 0){
-                    endGame();
-                    this.cancel();
+                //Si está en pausa, solo mostrar tiempo sin decrementar
+                if(isPaused){
+                    showTimeToAllPlayers();
                     return;
                 }
 
-                //Mostrar tiempo a los jugadores
-                showTimeToAllPlayers();
+                if(BingoConfig.isSpeedrunMode()) {
+                    // MODO SPEEDRUN: Tiempo ascendente sin límite
+                    showTimeToAllPlayers();
+                    timeElapsedSeconds++; // Incrementar tiempo
+                } else {
+                    // MODO NORMAL: Tiempo descendente con límite
+                    //Si el tiempo se acabó
+                    if(timeLeftInSeconds <= 0){
+                        endGame();
+                        this.cancel();
+                        return;
+                    }
 
-                checkTimeAnnouncements();
+                    //Mostrar tiempo a los jugadores
+                    showTimeToAllPlayers();
 
-                //Restar 1 segundo
-                timeLeftInSeconds--;
+                    checkTimeAnnouncements();
+
+                    //Restar 1 segundo
+                    timeLeftInSeconds--;
+                }
             }
         };
 
@@ -173,10 +192,48 @@ public class BingoTimer {
             timerTask.cancel();
         }
         isRunning = false;
+        isPaused = false;
+    }
+
+    public static void pauseTimer(){
+        if(!isRunning || isPaused){
+            return;
+        }
+        isPaused = true;
+        Bukkit.broadcastMessage(ChatColor.YELLOW + "" + ChatColor.BOLD + "⏸ PARTIDA EN PAUSA");
+    }
+
+    public static void unpauseTimer(){
+        if(!isRunning || !isPaused){
+            return;
+        }
+        isPaused = false;
+        Bukkit.broadcastMessage(ChatColor.GREEN + "" + ChatColor.BOLD + "▶ PARTIDA REANUDADA");
+    }
+
+    public static boolean isPaused(){
+        return isPaused;
     }
 
     private static void showTimeToAllPlayers(){
-        String timeDisplay = formatTime(timeLeftInSeconds);
+        String timeDisplay;
+
+        if(BingoConfig.isSpeedrunMode()) {
+            // Modo speedrun: mostrar tiempo ascendente
+            if(isPaused){
+                timeDisplay = ChatColor.YELLOW + "⏸ PAUSADO " + ChatColor.GRAY + "| " +
+                             ChatColor.GOLD + "⏱ SPEEDRUN: " + ChatColor.WHITE + formatTime(timeElapsedSeconds);
+            } else {
+                timeDisplay = ChatColor.GOLD + "⏱ SPEEDRUN: " + ChatColor.WHITE + formatTime(timeElapsedSeconds);
+            }
+        } else {
+            // Modo normal: mostrar tiempo descendente
+            if(isPaused){
+                timeDisplay = ChatColor.YELLOW + "⏸ PAUSADO " + ChatColor.GRAY + "| " + ChatColor.WHITE + formatTime(timeLeftInSeconds);
+            } else {
+                timeDisplay = formatTime(timeLeftInSeconds);
+            }
+        }
 
         for(Player player : Bukkit.getOnlinePlayers()){
             player.sendActionBar(timeDisplay);
@@ -206,7 +263,15 @@ public class BingoTimer {
     }
 
     public static String getActualTimeFormatted(){
-         return formatTime(TOTAL_time - timeLeftInSeconds);
+        if(BingoConfig.isSpeedrunMode()) {
+            return formatTime(timeElapsedSeconds);
+        } else {
+            return formatTime(TOTAL_time - timeLeftInSeconds);
+        }
+    }
+
+    public static int getElapsedSeconds(){
+        return timeElapsedSeconds;
     }
 
 }

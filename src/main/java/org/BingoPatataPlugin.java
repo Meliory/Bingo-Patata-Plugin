@@ -1,12 +1,6 @@
 package org;
 
-import org.bukkit.GameRule;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
-import org.bukkit.WorldType;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.Objects;
 
 public final class BingoPatataPlugin extends JavaPlugin {
 
@@ -17,6 +11,15 @@ public final class BingoPatataPlugin extends JavaPlugin {
         // Plugin startup logic
         instance = this;
         getLogger().info("BingoPatataPlugin has been enabled!");
+
+        // Cargar configuración
+        saveDefaultConfig();
+        BingoConfig.loadConfig(getConfig());
+        MessageManager.loadMessages();
+
+        // Cargar equipos guardados
+        TeamManager.loadTeams();
+
         getServer().getPluginManager().registerEvents(new BingoListener(), this);
         getServer().getPluginManager().registerEvents(new BingoPortalManager(), this);
         getServer().getPluginManager().registerEvents(new BingoRespawnManager(), this);
@@ -26,10 +29,8 @@ public final class BingoPatataPlugin extends JavaPlugin {
         this.getCommand("bingoPatata").setExecutor(commands);
         this.getCommand("bingoPatata").setTabCompleter(commands);
 
-        /*getServer().getScheduler().runTask(this, () -> {
-            BingoWorldManager.loadAllTeamWorlds();
-        });*/
         BingoWorldManager.initialize(this);
+        BingoLogger.initialize();
     }
 
     @Override

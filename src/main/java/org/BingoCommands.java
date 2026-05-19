@@ -17,7 +17,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("Usa: /bingo <team|player|card|test>");
+            sender.sendMessage("Usa: /bingo <team|timer|card|start|stop|pause|resume|points|load-worlds|reload>");
             return true;
         }
 
@@ -41,12 +41,39 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             return handleStartCommand(sender, args);
         }
 
+        if(args[0].equalsIgnoreCase("stop")) {
+            return handleStopCommand(sender, args);
+        }
+
+        if(args[0].equalsIgnoreCase("pause")) {
+            return handlePauseCommand(sender, args);
+        }
+
+        if(args[0].equalsIgnoreCase("resume")) {
+            return handleResumeCommand(sender, args);
+        }
+
         if(args[0].equalsIgnoreCase("points")) {
             return handlePointsCommand(sender, args);
         }
 
-        if(args[0].equalsIgnoreCase("load")) {
+        if(args[0].equalsIgnoreCase("load-worlds")) {
             BingoWorldManager.forceLoadAllTeamWorlds();
+            sender.sendMessage(ChatColor.GREEN + "Todos los mundos han sido cargados");
+            return true;
+        }
+
+        if(args[0].equalsIgnoreCase("reload")) {
+            if (!sender.isOp()) {
+                sender.sendMessage(ChatColor.RED + "No tienes permiso para usar este comando");
+                return true;
+            }
+            BingoConfig.reloadConfig();
+            MessageManager.loadMessages();
+            BingoScoreboard.reloadAllScoreboards(); // Actualizar títulos y contenido de los scoreboards
+            sender.sendMessage(ChatColor.GREEN + "Configuración recargada correctamente");
+            sender.sendMessage(ChatColor.YELLOW + "Modo compartir mundos: " + BingoConfig.isShareWorld());
+            return true;
         }
 
         return true;
@@ -76,7 +103,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
     public boolean handleTimerCommand(CommandSender sender, String[] args) {
         if (args.length < 2){
-            sender.sendMessage("Usa: /bingo timer <ARGS>");
+            sender.sendMessage("Usa: /bingo timer <start|stop|resume|set>");
             return true;
         }
 
@@ -90,6 +117,38 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
                 yield true;
             }
         };
+    }
+
+    public boolean handlePauseCommand(CommandSender sender, String[] args) {
+        if(!BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No hay ninguna partida en curso");
+            return true;
+        }
+
+        if(BingoTimer.isPaused()) {
+            sender.sendMessage(ChatColor.YELLOW + "La partida ya está en pausa");
+            return true;
+        }
+
+        BingoTimer.pauseTimer();
+        sender.sendMessage(ChatColor.YELLOW + "✔ Partida pausada");
+        return true;
+    }
+
+    public boolean handleResumeCommand(CommandSender sender, String[] args) {
+        if(!BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No hay ninguna partida en curso");
+            return true;
+        }
+
+        if(!BingoTimer.isPaused()) {
+            sender.sendMessage(ChatColor.YELLOW + "La partida no está en pausa");
+            return true;
+        }
+
+        BingoTimer.unpauseTimer();
+        sender.sendMessage(ChatColor.GREEN + "✔ Partida reanudada");
+        return true;
     }
 
     /*public boolean handlePlayerCommand(CommandSender sender, String[] args) {
@@ -133,6 +192,9 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Resetear logs de items (borrar y crear nuevo)
+        BingoLogger.resetLog();
+
         if(!BingoWorldManager.areActiveWorldsLoaded()) {
             sender.sendMessage("Cargando mundos necesarios...");
             BingoWorldManager.loadAllActiveTeamWorlds();
@@ -156,16 +218,40 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    public boolean handleStopCommand(CommandSender sender, String[] args) {
+        if (!BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No hay ninguna partida en curso");
+            return true;
+        }
+
+        // Detener timer
+        BingoTimer.stopTimer();
+
+        // Detener actualización periódica de scoreboards
+        BingoScoreboard.stopPeriodicUpdate();
+
+        // Broadcast
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendMessage(ChatColor.RED + ChatColor.BOLD.toString() + "✖ PARTIDA DETENIDA");
+            // Limpiar scoreboard del jugador
+            p.setScoreboard(Bukkit.getScoreboardManager().getNewScoreboard());
+        }
+
+        sender.sendMessage(ChatColor.YELLOW + "Partida detenida correctamente");
+        return true;
+    }
+
     public boolean handleResetCommand(CommandSender sender, String[] args) {
         return true;
     }
 
     public boolean handlePointsCommand(CommandSender sender, String[] args) {
-        sender.sendMessage(ChatColor.GOLD + "=== RESULTADOS FINALES ===");
+        // Broadcast del encabezado para que todos lo vean
+        Bukkit.broadcastMessage(ChatColor.GOLD + "=== RESULTADOS FINALES ===");
 
         List<Team> teams = TeamManager.getAllTeams();
         if(teams.isEmpty()) {
-            sender.sendMessage("No hay equipos");
+            Bukkit.broadcastMessage("No hay equipos");
             return true;
         }
 
@@ -368,8 +454,13 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
         ChatColor teamColor = team.getColor();
         sender.sendMessage(teamColor + " -- " + team.getName() + " --");
         List<UUID> players = team.getPlayers();
-        for(UUID player : players){
-            sender.sendMessage("  - " + Objects.requireNonNull(Bukkit.getPlayer(player)).getName());
+        for(UUID playerUUID : players){
+            Player player = Bukkit.getPlayer(playerUUID);
+            if(player != null && player.isOnline()) {
+                sender.sendMessage("  - " + player.getName());
+            } else {
+                sender.sendMessage("  - " + ChatColor.GRAY + "[Offline: " + playerUUID + "]");
+            }
         }
     }
 
@@ -408,19 +499,41 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     }
 
     private boolean setTimer(CommandSender sender, String[] args){
-        if(args.length < 3){
-            sender.sendMessage("Usa: /bingo timer <time_in_seconds>");
+        // Nuevo formato: /bingo timer set <horas> <minutos> <segundos>
+        if(args.length < 5){
+            sender.sendMessage(ChatColor.RED + "Usa: /bingo timer set <horas> <minutos> <segundos>");
+            sender.sendMessage(ChatColor.YELLOW + "Ejemplo: /bingo timer set 1 30 0 (1 hora 30 minutos)");
             return true;
         }
 
-        int timeInSeconds = Integer.parseInt(args[2]);
-        if(timeInSeconds <= 0){
-            sender.sendMessage("Introduce un tiempo válido");
+        try {
+            int hours = Integer.parseInt(args[2]);
+            int minutes = Integer.parseInt(args[3]);
+            int seconds = Integer.parseInt(args[4]);
+
+            if(hours < 0 || minutes < 0 || seconds < 0 || minutes >= 60 || seconds >= 60){
+                sender.sendMessage(ChatColor.RED + "Valores inválidos. Minutos y segundos deben ser 0-59");
+                return true;
+            }
+
+            // Convertir todo a segundos
+            int totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+
+            if(totalSeconds <= 0){
+                sender.sendMessage(ChatColor.RED + "El tiempo total debe ser mayor a 0");
+                return true;
+            }
+
+            BingoTimer.setTimer(totalSeconds);
+
+            String timeString = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+            sender.sendMessage(ChatColor.GREEN + "✔ Timer establecido en: " + ChatColor.WHITE + timeString);
+
+        } catch (NumberFormatException e) {
+            sender.sendMessage(ChatColor.RED + "Error: Debes introducir números válidos");
             return true;
         }
 
-        BingoTimer.setTimer(timeInSeconds);
-        sender.sendMessage("Timer puesto a " + timeInSeconds + " segundos.");
         return true;
     }
 
@@ -476,47 +589,68 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     }
 
     private boolean giveItemTeam(CommandSender sender, String[] args){
-        if(args.length < 3){
+        if(args.length < 4){
             sender.sendMessage("Usa: /bingo card give_item <team_name> <item_name>");
             return true;
         }
 
         String teamName = args[2];
-        Material item = Material.valueOf(args[3].toUpperCase());
+        Team team = TeamManager.getTeamByName(teamName);
 
-        Bukkit.broadcastMessage(Arrays.toString(args));
-        Bukkit.broadcastMessage(item.name());
-
-        if(TeamManager.getTeamByName(teamName) == null ){
-            sender.sendMessage("No se han encontrado el team");
-        } else if(item == null){
-            sender.sendMessage("No se han encontrado el item");
-        } else if(!BingoCard.isItemOnBingo(item)){
-            sender.sendMessage("El item no está dentro de la carta actual");
-        } else {
-            BingoProcess.processItemTeam(Objects.requireNonNull(TeamManager.getTeamByName(teamName)), item);
-            sender.sendMessage("Se ha dado el item");
+        if(team == null){
+            sender.sendMessage("No se ha encontrado el team");
+            return true;
         }
+
+        try {
+            Material item = Material.valueOf(args[3].toUpperCase());
+
+            if(!BingoCard.isItemOnBingo(item)){
+                sender.sendMessage("El item no está dentro de la carta actual");
+                return true;
+            }
+
+            BingoProcess.processItemTeam(team, item);
+            sender.sendMessage("Se ha dado el item");
+
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(ChatColor.RED + "Material no válido: " + args[3]);
+            Bukkit.getLogger().severe("[BingoCommands] Error en giveItemTeam - Material inválido: " + args[3]);
+        }
+
         return true;
     }
 
     private boolean removeItemTeam(CommandSender sender, String[] args){
-        if(args.length < 3){
+        if(args.length < 4){
             sender.sendMessage("Usa: /bingo card remove_item <team_name> <item_name>");
             return true;
         }
 
         String teamName = args[2];
-        Material item = Material.valueOf(args[3].toUpperCase());
+        Team team = TeamManager.getTeamByName(teamName);
 
-        if(TeamManager.getTeamByName(teamName) == null ){
-            sender.sendMessage("No se han encontrado el team");
-        } else if(!BingoCard.isItemOnBingo(item)){
-            sender.sendMessage("El item no está dentro de la carta actual");
-        } else {
-            BingoProcess.removeItemTeam(Objects.requireNonNull(TeamManager.getTeamByName(teamName)), item);
-            sender.sendMessage("Se ha quitado el item");
+        if(team == null){
+            sender.sendMessage("No se ha encontrado el team");
+            return true;
         }
+
+        try {
+            Material item = Material.valueOf(args[3].toUpperCase());
+
+            if(!BingoCard.isItemOnBingo(item)){
+                sender.sendMessage("El item no está dentro de la carta actual");
+                return true;
+            }
+
+            BingoProcess.removeItemTeam(team, item);
+            sender.sendMessage("Se ha quitado el item");
+
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(ChatColor.RED + "Material no válido: " + args[3]);
+            Bukkit.getLogger().severe("[BingoCommands] Error en removeItemTeam - Material inválido: " + args[3]);
+        }
+
         return true;
     }
 
@@ -648,11 +782,17 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
         // PASO 7: Iniciar el timer
         BingoTimer.startTimer();
+
+        // Iniciar actualización periódica de scoreboards
+        BingoScoreboard.startPeriodicUpdate();
     }
 
     /* ---- SUBFUNCIONES END ---- */
 
     public static void endGame(){
+        // Detener actualización periódica de scoreboards
+        BingoScoreboard.stopPeriodicUpdate();
+
         applyStartEffects();
 
         World world = org.bukkit.Bukkit.getWorlds().get(0);
@@ -668,7 +808,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
                     player.setGameMode(GameMode.ADVENTURE);
                     BingoScoreboard.hideBingoCard(player);
 
-                    org.bukkit.Location spawnLocation = new org.bukkit.Location(world, 1690, world.getHighestBlockYAt(1690, 371) + 2, 371);
+                    org.bukkit.Location spawnLocation = new org.bukkit.Location(world, 0, world.getHighestBlockYAt(0, 0) + 2, 0);
                     spawnLocation.setYaw(0);
                     spawnLocation.setPitch(0);
 
@@ -690,16 +830,25 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     }
 
     private ChatColor parseColor(String color){
-        switch (color.toLowerCase()){
-            case "red": return  ChatColor.RED;
-            case "green": return  ChatColor.GREEN;
-            case "yellow": return  ChatColor.YELLOW;
-            case "blue": return  ChatColor.BLUE;
-            case "purple": return  ChatColor.LIGHT_PURPLE;
-            case "orange" : return ChatColor.GOLD;
-            case "aqua": return  ChatColor.AQUA;
-            default: return ChatColor.WHITE;
-        }
+        return switch (color.toLowerCase()) {
+            case "black" -> ChatColor.BLACK;
+            case "dark_blue" -> ChatColor.DARK_BLUE;
+            case "dark_green" -> ChatColor.DARK_GREEN;
+            case "dark_aqua", "dark_cyan" -> ChatColor.DARK_AQUA;
+            case "dark_red" -> ChatColor.DARK_RED;
+            case "dark_purple", "purple" -> ChatColor.DARK_PURPLE;
+            case "gold", "orange" -> ChatColor.GOLD;
+            case "gray", "grey" -> ChatColor.GRAY;
+            case "dark_gray", "dark_grey" -> ChatColor.DARK_GRAY;
+            case "blue" -> ChatColor.BLUE;
+            case "green" -> ChatColor.GREEN;
+            case "aqua", "cyan" -> ChatColor.AQUA;
+            case "red" -> ChatColor.RED;
+            case "light_purple", "pink" -> ChatColor.LIGHT_PURPLE;
+            case "yellow" -> ChatColor.YELLOW;
+            case "white" -> ChatColor.WHITE;
+            default -> ChatColor.WHITE;
+        };
     }
 
     @Override
@@ -726,7 +875,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
         // NIVEL 1: Comandos principales
         if (args.length == 1) {
-            List<String> mainCommands = Arrays.asList("team", "timer", "card", "reset", "start", "points");
+            List<String> mainCommands = Arrays.asList("team", "timer", "card", "reset", "start", "stop", "pause", "resume", "points", "load-worlds", "reload");
             completions.addAll(filterCompletions(mainCommands, args[0]));
         }
 

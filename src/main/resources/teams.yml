@@ -1,0 +1,64 @@
+# ==========================================
+# BingoPatataPlugin - Equipos Predefinidos
+# ==========================================
+#
+# Este archivo define los equipos disponibles para el juego.
+# Puedes añadir, modificar o eliminar equipos según necesites.
+#
+# Formato:
+#   nombre_equipo:
+#     name: "Nombre visible"
+#     color: "color" (ver colores disponibles abajo)
+#
+# Colores disponibles:
+# red, dark_red, green, dark_green, yellow, gold, blue, dark_blue,
+# aqua, dark_aqua, purple, light_purple, white, gray, dark_gray, black
+
+teams:
+  rojo:
+    name: "Rojo"
+    color: "red"
+
+  azul:
+    name: "Azul"
+    color: "blue"
+
+  verde:
+    name: "Verde"
+    color: "green"
+
+  amarillo:
+    name: "Amarillo"
+    color: "yellow"
+
+  naranja:
+    name: "Naranja"
+    color: "gold"
+
+  morado:
+    name: "Morado"
+    color: "light_purple"
+
+  cian:
+    name: "Cian"
+    color: "aqua"
+
+  blanco:
+    name: "Blanco"
+    color: "white"
+
+  rosa:
+    name: "Rosa"
+    color: "light_purple"
+
+  lima:
+    name: "Lima"
+    color: "green"
+
+  gris:
+    name: "Gris"
+    color: "gray"
+
+  negro:
+    name: "Negro"
+    color: "dark_gray"

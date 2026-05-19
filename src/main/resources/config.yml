@@ -1,0 +1,218 @@
+# ==========================================
+# BingoPatataPlugin - Configuración
+# ==========================================
+
+# ==================== MUNDOS ====================
+
+# Compartir mundos entre equipos
+# - false: Cada equipo tiene su propio Overworld, Nether y End (separados)
+# - true: Todos los equipos comparten el mismo mundo vanilla (world, world_nether, world_the_end)
+share_world: true
+
+# Nombres de los mundos vanilla cuando share_world = true
+vanilla_worlds:
+  overworld: "world"
+  nether: "world_nether"
+  end: "world_the_end"
+
+# ==================== TIMER ====================
+
+# Duración del timer en segundos (por defecto: 3 horas = 10800 segundos)
+timer_duration: 10800
+
+# ==================== ANUNCIOS ====================
+
+# Anunciar items conseguidos a TODOS los jugadores (no solo al equipo)
+# - false: Solo el equipo ve cuando consiguen un item (por defecto)
+# - true: Todos los jugadores ven cuando cualquier equipo consigue un item
+broadcast_item_announcements: true
+
+# ==================== PARTIDA ====================
+
+# Terminar partida cuando un equipo complete el bingo (25/25 items)
+# - false: La partida continúa aunque se complete el bingo (por defecto)
+# - true: La partida termina automáticamente cuando un equipo completa el bingo
+end_game_on_bingo_complete: true
+
+# ==================== MODO SPEEDRUN ====================
+
+# Activar modo speedrun (tiempo ascendente sin límite)
+# - false: Modo normal con tiempo descendente (por defecto)
+# - true: Modo speedrun con tiempo ascendente
+speedrun_mode: false
+
+# Objetivo del modo speedrun (solo aplica si speedrun_mode = true)
+# - "line": Terminar al completar una línea
+# - "bingo": Terminar al completar todo el bingo (25/25)
+speedrun_goal: "bingo"
+
+# ==================== OPTIMIZACIONES ====================
+
+# Tiempo de espera antes de descargar mundos inactivos (en milisegundos)
+world_unload_delay: 300000
+
+# Intervalo de guardado automático de mundos (en ticks)
+auto_save_interval: 600000000
+
+# ==================== GAMERULES ====================
+
+gamerules:
+  show_advancement_messages: false
+  spawn_mobs: true
+  advance_time: true
+  mob_griefing: true
+  fire_spread_radius: 128
+
+# ==========================================
+# MENSAJES (MiniMessage Format)
+# ==========================================
+# Documentación MiniMessage: https://docs.advntr.dev/minimessage/format.html
+#
+# Placeholders disponibles:
+#   {player} - Nombre del jugador
+#   {team} - Nombre del equipo
+#   <{team_color}> - Color del equipo
+#   {item} - Nombre del item
+#   {points} - Puntos
+#   {time} - Tiempo
+#
+# Ejemplos de formato:
+#   <red>Texto rojo</red>
+#   <bold>Texto en negrita</bold>
+#   <gradient:red:blue>Gradiente</gradient>
+#   <rainbow>Arcoiris</rainbow>
+
+messages:
+  # ==================== GENERAL ====================
+  prefix: "<gradient:gold:yellow><bold>[BINGO]</bold></gradient> <gray>»</gray> "
+  no_permission: "<red>✖ No tienes permiso para usar este comando</red>"
+  player_only: "<red>✖ Este comando solo puede ser ejecutado por un jugador</red>"
+
+  # ==================== EQUIPOS ====================
+  team:
+    created: "<green>✔ Equipo <{team_color}>{team}</{team_color}> creado correctamente</green>"
+    already_exists: "<red>✖ El equipo <bold>{team}</bold> ya existe</red>"
+    not_found: "<red>✖ El equipo <bold>{team}</bold> no existe</red>"
+    deleted: "<red>✔ Equipo <{team_color}>{team}</{team_color}> eliminado</red>"
+    all_deleted: "<red>✔ Todos los equipos han sido eliminados</red>"
+
+    player_added: "<green>✔ Jugador <white>{player}</white> añadido al equipo <{team_color}>{team}</{team_color}></green>"
+    player_removed: "<yellow>✔ Jugador <white>{player}</white> eliminado de su equipo</yellow>"
+    player_not_in_team: "<red>✖ El jugador <white>{player}</white> no está en ningún equipo</red>"
+    player_already_in_team: "<red>✖ El jugador <white>{player}</white> ya está en un equipo</red>"
+
+    name_changed: "<green>✔ Equipo renombrado: <{team_color}>{old_name}</{team_color}> → <{team_color}>{new_name}</{team_color}></green>"
+    color_changed: "<green>✔ Color del equipo cambiado a <{team_color}>{team}</{team_color}></green>"
+
+    list_header: "<gold><bold>═══════ EQUIPOS ═══════</bold></gold>"
+    list_entry: " <gray>•</gray> <{team_color}>{team}</{team_color}> <dark_gray>-</dark_gray> <white>{player_count} jugadores</white>"
+    list_empty: "<yellow>⚠ No hay equipos creados</yellow>"
+
+    info_header: "<gold><bold>═══ INFO EQUIPO <{team_color}>{team}</{team_color}> <gold><bold>═══</bold></gold>"
+    info_color: " <gray>Color:</gray> <{team_color}>{color}</{team_color}>"
+    info_players: " <gray>Jugadores ({count}):</gray>"
+    info_player_entry: "   <gray>•</gray> <white>{player}</white>"
+    info_no_players: "   <gray><italic>Sin jugadores</italic></gray>"
+    info_points: " <gray>Puntos:</gray> <yellow>{points}</yellow>"
+    info_items: " <gray>Items conseguidos:</gray> <yellow>{items}/25</yellow>"
+
+  # ==================== PARTIDA ====================
+  game:
+    starting: "<gradient:green:aqua><bold>¡PARTIDA INICIANDO!</bold></gradient>"
+    countdown: "<yellow><bold>{seconds}</bold></yellow>"
+    go: "<gradient:green:lime><bold>¡YA!</bold></gradient>"
+    already_started: "<red>✖ Ya hay una partida en curso</red>"
+    not_started: "<red>✖ No hay ninguna partida en curso</red>"
+
+    stopped: "<red><bold>✖ PARTIDA DETENIDA</bold></red>"
+    reset: "<yellow><bold>⟳ PARTIDA RESETEADA</bold></yellow>"
+
+    no_teams: "<red>✖ No hay equipos creados. Crea equipos primero con <white>/bingo team create</white></red>"
+    loading_worlds: "<yellow>⏳ Cargando mundos...</yellow>"
+    teleporting_players: "<yellow>⏳ Teleportando jugadores...</yellow>"
+
+  # ==================== TIMER ====================
+  timer:
+    started: "<green>✔ Timer iniciado: <white>{time}</white></green>"
+    stopped: "<yellow>✔ Timer pausado en: <white>{time}</white></yellow>"
+    resumed: "<green>✔ Timer reanudado</green>"
+    set: "<green>✔ Timer establecido en: <white>{time}</white></green>"
+    finished: "<gradient:red:gold><bold>⏰ ¡TIEMPO TERMINADO!</bold></gradient>"
+
+    warning_30min: "<yellow><bold>⚠ Quedan 30 minutos</bold></yellow>"
+    warning_10min: "<gold><bold>⚠ Quedan 10 minutos</bold></gold>"
+    warning_5min: "<red><bold>⚠ Quedan 5 minutos</bold></red>"
+    warning_1min: "<dark_red><bold>⚠ ¡QUEDA 1 MINUTO!</bold></dark_red>"
+
+  # ==================== ITEMS ====================
+  item:
+    obtained_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <white>{player}</white> <gray>consiguió</gray> <yellow>{item}</yellow> <green>✔</green>"
+    obtained_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <white>{player}</white> <gray>consiguió</gray> <yellow>{item}</yellow> <green>✔</green>"
+
+    line_completed_horizontal_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <aqua><bold>¡LÍNEA HORIZONTAL COMPLETADA!</bold></aqua> <gold>(+2 puntos)</gold>"
+    line_completed_horizontal_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <aqua><bold>¡LÍNEA HORIZONTAL COMPLETADA!</bold></aqua> <gold>(+2 puntos)</gold>"
+
+    line_completed_vertical_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <light_purple><bold>¡LÍNEA VERTICAL COMPLETADA!</bold></light_purple> <gold>(+2 puntos)</gold>"
+    line_completed_vertical_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <light_purple><bold>¡LÍNEA VERTICAL COMPLETADA!</bold></light_purple> <gold>(+2 puntos)</gold>"
+
+    line_completed_diagonal_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA DIAGONAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
+    line_completed_diagonal_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA DIAGONAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
+
+    bingo_completed_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <yellow><bold>¡¡¡BINGO COMPLETO!!!</bold></yellow> <gold>(+5 puntos)</gold>"
+    bingo_completed_broadcast: "<gold><bold>!!!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <yellow><bold>¡¡¡BINGO COMPLETO!!!</bold></yellow> <gold>(+5 puntos)</gold>"
+
+    already_obtained: "<red>✖ Tu equipo ya tiene este item</red>"
+    not_on_card: "<red>✖ Este item no está en la carta de bingo</red>"
+
+  # ==================== CARTA ====================
+  card:
+    show_enabled: "<green>✔ Carta visible activada</green>"
+    show_disabled: "<yellow>✔ Carta visible desactivada</yellow>"
+    show_everyone_enabled: "<green>✔ Cartas visibles para todos activadas</green>"
+    show_everyone_disabled: "<yellow>✔ Cartas visibles para todos desactivadas</yellow>"
+
+    restarted: "<yellow>✔ Carta del equipo <{team_color}>{team}</{team_color}> reiniciada</yellow>"
+
+    item_given: "<green>✔ Item <yellow>{item}</yellow> dado al equipo <{team_color}>{team}</{team_color}></green>"
+    item_removed: "<yellow>✔ Item <yellow>{item}</yellow> quitado del equipo <{team_color}>{team}</{team_color}></yellow>"
+
+  # ==================== SCOREBOARD ====================
+  scoreboard:
+    title: "<gradient:gold:yellow><bold>Bingo Patata T.8</bold></gradient>"
+
+    line_timer: "<gray>Tiempo:</gray> <white>{time}</white>"
+    line_team: "<aqua>◈ Equipo:</aqua> <{team_color}><bold>{team}</bold></{team_color}>"
+    line_points: "<gold>⭐ Puntos:</gold> <yellow><bold>{points}</bold></yellow>"
+    line_items: "<green>✦ Items:</green> <white>{items}<gray>/</gray>25</white>"
+    line_separator: "<dark_gray>--------------</dark_gray>"
+
+    line_ranking_header: "<gold><bold>TOP 3</bold></gold>"
+    line_ranking_entry: "<gray>#{position}</gray> <{team_color}>{team}</{team_color}> <yellow>{points}pts</yellow>"
+
+  # ==================== PUNTOS ====================
+  points:
+    header: "<gold><bold>═════ PUNTUACIONES ═════</bold></gold>"
+    entry: " <gray>#{position}</gray> <{team_color}>{team}</{team_color}> <dark_gray>-</dark_gray> <yellow>{points} puntos</yellow> <gray>({items} items)</gray>"
+    no_teams: "<yellow>⚠ No hay equipos para mostrar</yellow>"
+
+  # ==================== CONFIGURACIÓN ====================
+  config:
+    reloaded: "<green>✔ Configuración recargada correctamente</green>"
+    share_world_status: "<yellow>Modo compartir mundos:</yellow> <white>{status}</white>"
+
+  # ==================== ERRORES ====================
+  error:
+    general: "<red>✖ Ocurrió un error: {error}</red>"
+    invalid_number: "<red>✖ Número inválido: <white>{input}</white></red>"
+    invalid_time: "<red>✖ Formato de tiempo inválido. Usa: <white>/bingo timer set <horas> <minutos> <segundos></white></red>"
+    invalid_material: "<red>✖ Material inválido: <white>{material}</white></red>"
+    invalid_color: "<red>✖ Color inválido: <white>{color}</white></red>"
+    player_not_found: "<red>✖ Jugador no encontrado: <white>{player}</white></red>"
+
+  # ==================== COMANDOS ====================
+  commands:
+    worlds_loaded: "<green>✔ Todos los mundos han sido cargados</green>"
+    usage_team: "<yellow>Usa: <white>/bingo team <create|erase|add_player|remove_player|change_name|change_color|list|info></white></yellow>"
+    usage_timer: "<yellow>Usa: <white>/bingo timer <start|stop|resume|set></white></yellow>"
+    usage_card: "<yellow>Usa: <white>/bingo card <show|show_everyone|restart|give_item|remove_item></white></yellow>"
+    unknown_subcommand: "<red>✖ Subcomando desconocido</red>"

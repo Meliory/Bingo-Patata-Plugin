@@ -1,10 +1,16 @@
 package org;
 
+import io.papermc.paper.scoreboard.numbers.NumberFormat;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.scoreboard.*;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.*;
 
@@ -14,6 +20,9 @@ public class BingoScoreboard {
 
     // UN scoreboard por equipo (no por jugador)
     private static final Map<Team, Scoreboard> teamScoreboards = new HashMap<>();
+
+    // Task para actualización periódica
+    private static BukkitRunnable periodicUpdateTask;
 
     //Mapeo de materiales a caracteres Unicode
     private static final Map<Material, String> ITEM_CHARS = new HashMap<>();
@@ -99,9 +108,23 @@ public class BingoScoreboard {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         Scoreboard scoreboard = manager.getNewScoreboard();
 
-        Objective objective = scoreboard.registerNewObjective("bingo", "dummy",
-                ChatColor.GOLD + "BINGO PATATA T.7");
+        // Obtener título desde config usando MiniMessage
+        Component title = MessageManager.get("scoreboard.title");
+        Objective objective = scoreboard.registerNewObjective("bingo", "dummy", title);
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+        // QUITAR NÚMEROS ROJOS - Múltiples métodos para máxima compatibilidad
+        try {
+            // Método 1: numberFormat (Paper 1.20.5+)
+            objective.numberFormat(NumberFormat.blank());
+        } catch (Exception e) {
+            try {
+                // Método 2: setDisplayName con formato vacío
+                objective.setRenderType(RenderType.INTEGER);
+            } catch (Exception ex) {
+                Bukkit.getLogger().warning("[BingoScoreboard] No se pudo ocultar números del scoreboard: " + ex.getMessage());
+            }
+        }
 
         // Guardar el scoreboard del equipo
         teamScoreboards.put(team, scoreboard);
@@ -113,11 +136,44 @@ public class BingoScoreboard {
     }
 
     public static void updateTeamScoreboard(Team team) {
-        if (!teamScoreboards.containsKey(team)) {
-            return; // No tiene scoreboard, no actualizar
-        }
+        try {
+            if(team == null) return;
 
-        updateTeamScoreboardContent(team);
+            if (!teamScoreboards.containsKey(team)) {
+                return; // No tiene scoreboard, no actualizar
+            }
+
+            // Validar que todos los jugadores del equipo tengan el scoreboard correcto
+            ensureAllPlayersHaveCorrectScoreboard(team);
+
+            updateTeamScoreboardContent(team);
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoScoreboard] Error crítico en updateTeamScoreboard - Team: " +
+                (team != null ? team.getName() : "null"));
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Asegura que todos los jugadores del equipo tengan el scoreboard correcto asignado
+     */
+    private static void ensureAllPlayersHaveCorrectScoreboard(Team team) {
+        if (team == null) return;
+
+        Scoreboard teamScoreboard = teamScoreboards.get(team);
+        if (teamScoreboard == null) return;
+
+        for (UUID uuid : team.getPlayers()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                // Si el jugador no tiene el scoreboard correcto, reasignarlo
+                if (!player.getScoreboard().equals(teamScoreboard)) {
+                    player.setScoreboard(teamScoreboard);
+                    Bukkit.getLogger().warning("[BingoScoreboard] Jugador " + player.getName() +
+                        " tenía scoreboard incorrecto, reasignando...");
+                }
+            }
+        }
     }
 
     /*public static void createBingoScoreboard(Player player) {
@@ -140,27 +196,67 @@ public class BingoScoreboard {
     }*/
 
     private static void updateTeamScoreboardContent(Team team) {
-        Scoreboard scoreboard = teamScoreboards.get(team);
-        if (scoreboard == null) return;
+        try {
+            if(team == null) {
+                Bukkit.getLogger().severe("[BingoScoreboard] Error crítico: team es null en updateTeamScoreboardContent");
+                return;
+            }
 
-        Objective objective = scoreboard.getObjective("bingo");
-        if (objective == null) return;
+            Scoreboard scoreboard = teamScoreboards.get(team);
+            if (scoreboard == null) return;
 
-        // Limpiar scoreboard anterior
-        for (String entry : scoreboard.getEntries()) {
-            scoreboard.resetScores(entry);
-        }
+            Objective objective = scoreboard.getObjective("bingo");
 
-        Set<Material> teamItems = BingoData.getTeamItems(team);
-        int teamPoints = BingoData.getTeamPoints(team);
-        List<Material> bingoItems = BingoCard.getBingoItems();
+            // Si el objective no existe o está corrupto, recrearlo completamente
+            if (objective == null) {
+                Bukkit.getLogger().warning("[BingoScoreboard] Objective null para equipo " + team.getName() + ", recreando...");
+                rebuildTeamScoreboard(team);
+                return;
+            }
 
-        int score = 40;
+            // Limpiar scoreboard anterior - método más robusto
+            try {
+                objective.unregister();
+            } catch (Exception e) {
+                Bukkit.getLogger().warning("[BingoScoreboard] Error al desregistrar objective, recreando scoreboard completo");
+                rebuildTeamScoreboard(team);
+                return;
+            }
 
-        //Título Equipo
-        objective.getScore("Equipo: " + team.getColoredName()).setScore(score--);
-        objective.getScore("").setScore(score--);
-        objective.getScore("§" + (200 * 2) + "§r").setScore(score--);
+            // Recrear el objective
+            Component title = MessageManager.get("scoreboard.title");
+            objective = scoreboard.registerNewObjective("bingo", "dummy", title);
+            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+            // QUITAR NÚMEROS ROJOS
+            try {
+                objective.numberFormat(NumberFormat.blank());
+            } catch (Exception e) {
+                try {
+                    objective.setRenderType(RenderType.INTEGER);
+                } catch (Exception ex) {
+                    // Ignorar si no se puede
+                }
+            }
+
+            Set<Material> teamItems = BingoData.getTeamItems(team);
+            int teamPoints = BingoData.getTeamPoints(team);
+            List<Material> bingoItems = BingoCard.getBingoItems();
+
+            int score = 40;
+
+        //Título Equipo - Usar mensaje del config con color del equipo
+        var teamPlaceholders = MessageManager.builder()
+                .add("team", team.getName())
+                .add("team_color", team.getColorTag())
+                .build();
+        Component teamComponent = MessageManager.get("scoreboard.line_team", teamPlaceholders);
+        String teamLine = LegacyComponentSerializer.legacySection().serialize(teamComponent);
+        objective.getScore(teamLine).setScore(score--);
+
+        // Líneas separadoras invisibles usando códigos de color únicos (invisibles pero únicos)
+        objective.getScore(ChatColor.RESET + "").setScore(score--);
+        objective.getScore(ChatColor.RESET + " ").setScore(score--);
 
         //Filas de items con doble espaciado
         for(int i = 0; i <= 4; i++){
@@ -185,15 +281,29 @@ public class BingoScoreboard {
             }
         }
 
-        objective.getScore(" ").setScore(score--);
+        // Línea separadora invisible
+        objective.getScore(ChatColor.RESET + "  ").setScore(score--);
 
-        // Progreso
-        String progress = ChatColor.YELLOW + "Items: " + ChatColor.GREEN +
-                teamItems.size() + ChatColor.GRAY + "/" + ChatColor.WHITE + bingoItems.size();
-        objective.getScore(progress).setScore(score--);
+        // Progreso - Usar mensajes decorados del config
+        var itemsPlaceholders = MessageManager.builder()
+                .add("items", teamItems.size())
+                .build();
+        Component itemsComponent = MessageManager.get("scoreboard.line_items", itemsPlaceholders);
+        String itemsLine = LegacyComponentSerializer.legacySection().serialize(itemsComponent);
+        objective.getScore(itemsLine).setScore(score--);
 
-        String points = ChatColor.YELLOW + "Puntos: " + ChatColor.GREEN + teamPoints;
-        objective.getScore(points).setScore(score--);
+        var pointsPlaceholders = MessageManager.builder()
+                .add("points", teamPoints)
+                .build();
+        Component pointsComponent = MessageManager.get("scoreboard.line_points", pointsPlaceholders);
+        String pointsLine = LegacyComponentSerializer.legacySection().serialize(pointsComponent);
+        objective.getScore(pointsLine).setScore(score--);
+
+        } catch (Exception e) {
+            Bukkit.getLogger().severe("[BingoScoreboard] Error crítico en updateTeamScoreboardContent - Team: " +
+                (team != null ? team.getName() : "null"));
+            e.printStackTrace();
+        }
     }
 
     public static void updateAllTeamScoreboards() {
@@ -202,7 +312,114 @@ public class BingoScoreboard {
         }
     }
 
+    /**
+     * Recarga los títulos y contenido de todos los scoreboards
+     * Se usa cuando se hace reload de la configuración
+     */
+    public static void reloadAllScoreboards() {
+        for (Team team : teamScoreboards.keySet()) {
+            Scoreboard scoreboard = teamScoreboards.get(team);
+            if (scoreboard == null) continue;
+
+            Objective objective = scoreboard.getObjective("bingo");
+            if (objective == null) continue;
+
+            // Actualizar título desde config
+            Component newTitle = MessageManager.get("scoreboard.title");
+            objective.displayName(newTitle);
+
+            // Actualizar contenido
+            updateTeamScoreboardContent(team);
+        }
+    }
+
+    /**
+     * Reconstruye completamente el scoreboard de un equipo
+     * Se usa cuando hay un error crítico con el scoreboard
+     */
+    private static void rebuildTeamScoreboard(Team team) {
+        if (team == null) return;
+
+        Bukkit.getLogger().info("[BingoScoreboard] Reconstruyendo scoreboard completo para equipo " + team.getName());
+
+        // Eliminar el scoreboard viejo
+        teamScoreboards.remove(team);
+
+        // Crear uno nuevo
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        Scoreboard scoreboard = manager.getNewScoreboard();
+
+        Component title = MessageManager.get("scoreboard.title");
+        Objective objective = scoreboard.registerNewObjective("bingo", "dummy", title);
+        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+        try {
+            objective.numberFormat(NumberFormat.blank());
+        } catch (Exception e) {
+            try {
+                objective.setRenderType(RenderType.INTEGER);
+            } catch (Exception ex) {
+                // Ignorar
+            }
+        }
+
+        // Guardar el nuevo scoreboard
+        teamScoreboards.put(team, scoreboard);
+
+        // Reasignar a todos los jugadores del equipo
+        for (UUID uuid : team.getPlayers()) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline()) {
+                player.setScoreboard(scoreboard);
+            }
+        }
+
+        // Actualizar contenido (esto ya no intentará desregistrar porque es nuevo)
+        updateTeamScoreboardContent(team);
+    }
+
+    /**
+     * Inicia la actualización periódica de todos los scoreboards
+     * Se ejecuta cada 60 segundos para prevenir desincronización
+     */
+    public static void startPeriodicUpdate() {
+        stopPeriodicUpdate(); // Por si ya estaba corriendo
+
+        periodicUpdateTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    for (Team team : teamScoreboards.keySet()) {
+                        // Forzar actualización completa
+                        rebuildTeamScoreboard(team);
+                    }
+                    Bukkit.getLogger().info("[BingoScoreboard] Actualización periódica completada para " +
+                        teamScoreboards.size() + " equipos");
+                } catch (Exception e) {
+                    Bukkit.getLogger().severe("[BingoScoreboard] Error en actualización periódica");
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        // Ejecutar cada 60 segundos (1200 ticks)
+        periodicUpdateTask.runTaskTimer(BingoPatataPlugin.getInstance(), 1200L, 1200L);
+        Bukkit.getLogger().info("[BingoScoreboard] Actualización periódica de scoreboards iniciada (cada 60 segundos)");
+    }
+
+    /**
+     * Detiene la actualización periódica
+     */
+    public static void stopPeriodicUpdate() {
+        if (periodicUpdateTask != null) {
+            periodicUpdateTask.cancel();
+            periodicUpdateTask = null;
+            Bukkit.getLogger().info("[BingoScoreboard] Actualización periódica de scoreboards detenida");
+        }
+    }
+
     public static void clearAllScoreboards() {
+        stopPeriodicUpdate(); // Detener actualización periódica
         teamScoreboards.clear();
 
         // Devolver a todos los jugadores al scoreboard principal

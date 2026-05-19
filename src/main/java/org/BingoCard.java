@@ -8,11 +8,11 @@ import java.util.List;
 public class BingoCard {
 
     private static final List<Material> BINGO_ITEMS = Arrays.asList(
-            Material.PUFFERFISH_BUCKET, Material.BROWN_CONCRETE, Material.WARPED_FUNGUS, Material.ANVIL, Material.GOLDEN_AXE,
-            Material.SNIFFER_EGG, Material.REDSTONE_TORCH, Material.CHERRY_PLANKS, Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE, Material.TRIAL_KEY,
-            Material.SPYGLASS, Material.SMOOTH_STONE, Material.DRIED_GHAST, Material.BAMBOO, Material.DIRT,
-            Material.DIAMOND_BLOCK, Material.RESIN_CLUMP, Material.BLUE_EGG, Material.YELLOW_STAINED_GLASS, Material.REDSTONE_LAMP,
-            Material.RABBIT_FOOT, Material.CHISELED_SANDSTONE, Material.BAKED_POTATO, Material.BLAZE_POWDER, Material.MUD_BRICKS
+            Material.GOLDEN_CARROT, Material.OXIDIZED_CUT_COPPER, Material.GLOW_BERRIES, Material.TRIDENT, Material.BEETROOT_SOUP,
+            Material.RABBIT, Material.COPPER_NAUTILUS_ARMOR, Material.LAPIS_BLOCK, Material.PHANTOM_MEMBRANE, Material.LIGHT_GRAY_DYE,
+            Material.RAW_GOLD_BLOCK, Material.RED_NETHER_BRICK_WALL, Material.SPIRE_ARMOR_TRIM_SMITHING_TEMPLATE, Material.DECORATED_POT, Material.GREEN_GLAZED_TERRACOTTA,
+            Material.GLOW_INK_SAC, Material.PINK_CANDLE, Material.BAMBOO_MOSAIC, Material.POISONOUS_POTATO, Material.OMINOUS_TRIAL_KEY,
+            Material.SPONGE, Material.NETHERITE_SPEAR, Material.LILY_PAD, Material.GLOBE_BANNER_PATTERN, Material.ENCHANTING_TABLE
     );
 
     public static boolean isItemOnBingo(Material item){
