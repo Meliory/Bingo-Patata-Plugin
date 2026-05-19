@@ -21,6 +21,11 @@ public class BingoProcess {
                 return;
             }
 
+            // Si la partida está en pausa, no contar items
+            if(BingoTimer.isPaused()) {
+                return;
+            }
+
             if(player == null || item == null) {
                 Bukkit.getLogger().severe("[BingoProcess] Error crítico: player o item es null");
                 return;
@@ -158,6 +163,20 @@ public class BingoProcess {
                     }
                 }
             }
+
+            // MODO SPEEDRUN: Si el objetivo es completar una línea, terminar la partida
+            if(BingoConfig.isSpeedrunMode() && "line".equalsIgnoreCase(BingoConfig.getSpeedrunGoal())) {
+                Bukkit.getScheduler().runTaskLater(BingoPatataPlugin.getInstance(), () -> {
+                    BingoTimer.stopTimer();
+                    Bukkit.broadcastMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡SPEEDRUN COMPLETADO!");
+                    Bukkit.broadcastMessage(ChatColor.YELLOW + "Equipo " + team.getColoredName() + ChatColor.YELLOW + " completó una línea!");
+                    Bukkit.broadcastMessage(ChatColor.GRAY + "Tiempo final: " + ChatColor.WHITE + BingoTimer.getActualTimeFormatted());
+                    for(Player p : Bukkit.getOnlinePlayers()) {
+                        p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+                    }
+                }, 100L); // 5 segundos de delay
+                return; // Salir para evitar procesar más lógica
+            }
         }
 
         // Detectar si se completó el bingo (todos los items)
@@ -184,12 +203,25 @@ public class BingoProcess {
                 }
             }
 
-            // Terminar partida si está configurado
-            if(BingoConfig.isEndGameOnBingoComplete()) {
+            // Terminar partida si está configurado (modo normal) o si es modo speedrun con objetivo bingo
+            boolean shouldEndGame = BingoConfig.isEndGameOnBingoComplete() ||
+                                   (BingoConfig.isSpeedrunMode() && "bingo".equalsIgnoreCase(BingoConfig.getSpeedrunGoal()));
+
+            if(shouldEndGame) {
                 Bukkit.getScheduler().runTaskLater(BingoPatataPlugin.getInstance(), () -> {
                     BingoTimer.stopTimer();
+
+                    if(BingoConfig.isSpeedrunMode()) {
+                        Bukkit.broadcastMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡SPEEDRUN COMPLETADO!");
+                        Bukkit.broadcastMessage(ChatColor.YELLOW + "Equipo " + team.getColoredName() + ChatColor.YELLOW + " completó el bingo completo!");
+                        Bukkit.broadcastMessage(ChatColor.GRAY + "Tiempo final: " + ChatColor.WHITE + BingoTimer.getActualTimeFormatted());
+                    } else {
+                        for(Player p : Bukkit.getOnlinePlayers()) {
+                            p.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡PARTIDA TERMINADA!");
+                        }
+                    }
+
                     for(Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + "¡PARTIDA TERMINADA!");
                         p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
                     }
                 }, 100L); // 5 segundos de delay

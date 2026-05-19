@@ -7,7 +7,7 @@
 # Compartir mundos entre equipos
 # - false: Cada equipo tiene su propio Overworld, Nether y End (separados)
 # - true: Todos los equipos comparten el mismo mundo vanilla (world, world_nether, world_the_end)
-share_world: false
+share_world: true
 
 # Nombres de los mundos vanilla cuando share_world = true
 vanilla_worlds:
@@ -25,14 +25,26 @@ timer_duration: 10800
 # Anunciar items conseguidos a TODOS los jugadores (no solo al equipo)
 # - false: Solo el equipo ve cuando consiguen un item (por defecto)
 # - true: Todos los jugadores ven cuando cualquier equipo consigue un item
-broadcast_item_announcements: false
+broadcast_item_announcements: true
 
 # ==================== PARTIDA ====================
 
 # Terminar partida cuando un equipo complete el bingo (25/25 items)
 # - false: La partida continúa aunque se complete el bingo (por defecto)
 # - true: La partida termina automáticamente cuando un equipo completa el bingo
-end_game_on_bingo_complete: false
+end_game_on_bingo_complete: true
+
+# ==================== MODO SPEEDRUN ====================
+
+# Activar modo speedrun (tiempo ascendente sin límite)
+# - false: Modo normal con tiempo descendente (por defecto)
+# - true: Modo speedrun con tiempo ascendente
+speedrun_mode: false
+
+# Objetivo del modo speedrun (solo aplica si speedrun_mode = true)
+# - "line": Terminar al completar una línea
+# - "bingo": Terminar al completar todo el bingo (25/25)
+speedrun_goal: "bingo"
 
 # ==================== OPTIMIZACIONES ====================
 
@@ -40,7 +52,7 @@ end_game_on_bingo_complete: false
 world_unload_delay: 300000
 
 # Intervalo de guardado automático de mundos (en ticks)
-auto_save_interval: 6000
+auto_save_interval: 600000000
 
 # ==================== GAMERULES ====================
 
@@ -137,11 +149,11 @@ messages:
     obtained_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <white>{player}</white> <gray>consiguió</gray> <yellow>{item}</yellow> <green>✔</green>"
     obtained_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <white>{player}</white> <gray>consiguió</gray> <yellow>{item}</yellow> <green>✔</green>"
 
-    line_completed_horizontal_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA HORIZONTAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
-    line_completed_horizontal_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA HORIZONTAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
+    line_completed_horizontal_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <aqua><bold>¡LÍNEA HORIZONTAL COMPLETADA!</bold></aqua> <gold>(+2 puntos)</gold>"
+    line_completed_horizontal_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <aqua><bold>¡LÍNEA HORIZONTAL COMPLETADA!</bold></aqua> <gold>(+2 puntos)</gold>"
 
-    line_completed_vertical_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA VERTICAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
-    line_completed_vertical_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA VERTICAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
+    line_completed_vertical_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <light_purple><bold>¡LÍNEA VERTICAL COMPLETADA!</bold></light_purple> <gold>(+2 puntos)</gold>"
+    line_completed_vertical_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <light_purple><bold>¡LÍNEA VERTICAL COMPLETADA!</bold></light_purple> <gold>(+2 puntos)</gold>"
 
     line_completed_diagonal_team: "<{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA DIAGONAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
     line_completed_diagonal_broadcast: "<gold><bold>!</bold></gold> <{team_color}><bold>[{team}]</bold></{team_color}> <green><bold>¡LÍNEA DIAGONAL COMPLETADA!</bold></green> <gold>(+2 puntos)</gold>"
@@ -166,7 +178,7 @@ messages:
 
   # ==================== SCOREBOARD ====================
   scoreboard:
-    title: "<gradient:gold:yellow><bold>BINGO</bold></gradient>"
+    title: "<gradient:gold:yellow><bold>Bingo Patata T.8</bold></gradient>"
 
     line_timer: "<gray>Tiempo:</gray> <white>{time}</white>"
     line_team: "<aqua>◈ Equipo:</aqua> <{team_color}><bold>{team}</bold></{team_color}>"

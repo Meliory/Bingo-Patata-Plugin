@@ -21,6 +21,10 @@ public class BingoConfig {
     // ==================== PARTIDA ====================
     private static boolean endGameOnBingoComplete;
 
+    // ==================== MODO SPEEDRUN ====================
+    private static boolean speedrunMode;
+    private static String speedrunGoal;
+
     // ==================== OPTIMIZACIONES ====================
     private static long worldUnloadDelay;
     private static int autoSaveInterval;
@@ -52,6 +56,10 @@ public class BingoConfig {
 
         // Partida
         endGameOnBingoComplete = config.getBoolean("end_game_on_bingo_complete", false);
+
+        // Modo Speedrun
+        speedrunMode = config.getBoolean("speedrun_mode", false);
+        speedrunGoal = config.getString("speedrun_goal", "line");
 
         // Optimizaciones
         worldUnloadDelay = config.getLong("world_unload_delay", 300000L);
@@ -133,5 +141,13 @@ public class BingoConfig {
 
     public static boolean isEndGameOnBingoComplete() {
         return endGameOnBingoComplete;
+    }
+
+    public static boolean isSpeedrunMode() {
+        return speedrunMode;
+    }
+
+    public static String getSpeedrunGoal() {
+        return speedrunGoal;
     }
 }

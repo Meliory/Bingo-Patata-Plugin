@@ -17,7 +17,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("Usa: /bingo <team|player|card|test>");
+            sender.sendMessage("Usa: /bingo <team|timer|card|start|stop|pause|resume|points|load-worlds|reload>");
             return true;
         }
 
@@ -45,11 +45,19 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             return handleStopCommand(sender, args);
         }
 
+        if(args[0].equalsIgnoreCase("pause")) {
+            return handlePauseCommand(sender, args);
+        }
+
+        if(args[0].equalsIgnoreCase("resume")) {
+            return handleResumeCommand(sender, args);
+        }
+
         if(args[0].equalsIgnoreCase("points")) {
             return handlePointsCommand(sender, args);
         }
 
-        if(args[0].equalsIgnoreCase("load")) {
+        if(args[0].equalsIgnoreCase("load-worlds")) {
             BingoWorldManager.forceLoadAllTeamWorlds();
             sender.sendMessage(ChatColor.GREEN + "Todos los mundos han sido cargados");
             return true;
@@ -95,7 +103,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
     public boolean handleTimerCommand(CommandSender sender, String[] args) {
         if (args.length < 2){
-            sender.sendMessage("Usa: /bingo timer <ARGS>");
+            sender.sendMessage("Usa: /bingo timer <start|stop|resume|set>");
             return true;
         }
 
@@ -109,6 +117,38 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
                 yield true;
             }
         };
+    }
+
+    public boolean handlePauseCommand(CommandSender sender, String[] args) {
+        if(!BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No hay ninguna partida en curso");
+            return true;
+        }
+
+        if(BingoTimer.isPaused()) {
+            sender.sendMessage(ChatColor.YELLOW + "La partida ya está en pausa");
+            return true;
+        }
+
+        BingoTimer.pauseTimer();
+        sender.sendMessage(ChatColor.YELLOW + "✔ Partida pausada");
+        return true;
+    }
+
+    public boolean handleResumeCommand(CommandSender sender, String[] args) {
+        if(!BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No hay ninguna partida en curso");
+            return true;
+        }
+
+        if(!BingoTimer.isPaused()) {
+            sender.sendMessage(ChatColor.YELLOW + "La partida no está en pausa");
+            return true;
+        }
+
+        BingoTimer.unpauseTimer();
+        sender.sendMessage(ChatColor.GREEN + "✔ Partida reanudada");
+        return true;
     }
 
     /*public boolean handlePlayerCommand(CommandSender sender, String[] args) {
@@ -186,6 +226,9 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
         // Detener timer
         BingoTimer.stopTimer();
+
+        // Detener actualización periódica de scoreboards
+        BingoScoreboard.stopPeriodicUpdate();
 
         // Broadcast
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -739,11 +782,17 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
         // PASO 7: Iniciar el timer
         BingoTimer.startTimer();
+
+        // Iniciar actualización periódica de scoreboards
+        BingoScoreboard.startPeriodicUpdate();
     }
 
     /* ---- SUBFUNCIONES END ---- */
 
     public static void endGame(){
+        // Detener actualización periódica de scoreboards
+        BingoScoreboard.stopPeriodicUpdate();
+
         applyStartEffects();
 
         World world = org.bukkit.Bukkit.getWorlds().get(0);
@@ -826,7 +875,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
 
         // NIVEL 1: Comandos principales
         if (args.length == 1) {
-            List<String> mainCommands = Arrays.asList("team", "timer", "card", "reset", "start", "stop", "points", "load", "reload");
+            List<String> mainCommands = Arrays.asList("team", "timer", "card", "reset", "start", "stop", "pause", "resume", "points", "load-worlds", "reload");
             completions.addAll(filterCompletions(mainCommands, args[0]));
         }
 
