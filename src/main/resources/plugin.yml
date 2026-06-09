@@ -1,7 +1,7 @@
 name: BingoPatataPlugin
 version: '1.0.0'
 main: org.BingoPatataPlugin
-api-version: '1.21'
+api-version: '26.1'
 authors: [ Meliory ]
 description: Plugin de un Bingo para UHC - Patata
 

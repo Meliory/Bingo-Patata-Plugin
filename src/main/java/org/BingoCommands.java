@@ -545,6 +545,11 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if(args.length < 3) {
+            sender.sendMessage("Usa: /bingo card show <on|off>");
+            return true;
+        }
+
         String option = args[2];
 
         if(option.equalsIgnoreCase("on")){
@@ -560,6 +565,11 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     private boolean showCardPlayers(CommandSender sender, String[] args){
         if(!(sender instanceof Player player)) {
             sender.sendMessage("Solo los jugadores pueden usar este comando");
+            return true;
+        }
+
+        if(args.length < 3) {
+            sender.sendMessage("Usa: /bingo card show_everyone <on|off>");
             return true;
         }
 

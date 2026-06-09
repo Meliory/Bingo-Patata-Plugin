@@ -16,7 +16,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.inventory.Inventory;
 
-import javax.swing.*;
 
 public class BingoListener implements Listener {
 
