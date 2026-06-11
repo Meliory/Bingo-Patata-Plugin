@@ -69,8 +69,10 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
                 return true;
             }
             BingoConfig.reloadConfig();
+            BingoCard.reload();
+            BingoScoreboard.refreshCardDisplay();
             MessageManager.loadMessages();
-            BingoScoreboard.reloadAllScoreboards(); // Actualizar títulos y contenido de los scoreboards
+            BingoScoreboard.reloadAllScoreboards();
             sender.sendMessage(ChatColor.GREEN + "Configuración recargada correctamente");
             sender.sendMessage(ChatColor.YELLOW + "Modo compartir mundos: " + BingoConfig.isShareWorld());
             return true;
@@ -179,6 +181,11 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             case "restart" -> restartCardTeam(sender, args);
             case "give_item" -> giveItemTeam(sender, args);
             case "remove_item" -> removeItemTeam(sender, args);
+            case "random" -> randomCard(sender);
+            case "reset" -> resetCard(sender);
+            case "edit" -> openCardEditor(sender);
+            case "chat" -> showCardInChat(sender);
+            case "sprites" -> showAllSprites(sender, args);
             default -> {
                 sender.sendMessage("Subcomando desconocido");
                 yield true;
@@ -266,7 +273,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
             Team team = teams.get(i);
             int points = BingoData.getTeamPoints(team);
             int itemsCompleted = BingoData.getTeamItems(team).size();
-            int totalItems = BingoCard.getBingoItems().size();
+            int totalItems = BingoCard.getActiveCard().size();
 
             String position;
             position = (i + 1) + "°";
@@ -582,6 +589,159 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
         } else {
             sender.sendMessage("Opción no valida");
         }
+        return true;
+    }
+
+    private boolean showCardInChat(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Solo los jugadores pueden usar este comando");
+            return true;
+        }
+
+        List<Material> card = BingoCard.getActiveCard();
+        if (card.isEmpty()) {
+            sender.sendMessage(ChatColor.RED + "No hay tarjeta activa");
+            return true;
+        }
+
+        Team team = TeamManager.getplayerTeam(player);
+        Set<Material> teamItems = team != null ? BingoData.getTeamItems(team) : new java.util.HashSet<>();
+
+        player.sendMessage(net.kyori.adventure.text.Component.text("══════ Carta de Bingo ══════")
+                .color(net.kyori.adventure.text.format.NamedTextColor.GOLD));
+        player.sendMessage(net.kyori.adventure.text.Component.empty());
+
+        for (int row = 0; row < 5; row++) {
+            net.kyori.adventure.text.TextComponent.Builder line = net.kyori.adventure.text.Component.text();
+            for (int col = 0; col < 5; col++) {
+                Material material = card.get(row * 5 + col);
+                boolean done = teamItems.contains(material);
+                line.append(BingoItemText.charWithHover(material, done));
+                if (col < 4) line.append(net.kyori.adventure.text.Component.text(" "));
+            }
+            player.sendMessage(line.build());
+            if (row < 4) player.sendMessage(net.kyori.adventure.text.Component.empty());
+        }
+
+        player.sendMessage(net.kyori.adventure.text.Component.text("════════════════════════════")
+                .color(net.kyori.adventure.text.format.NamedTextColor.GOLD));
+        return true;
+    }
+
+    private boolean showAllSprites(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Solo los jugadores pueden usar este comando");
+            return true;
+        }
+        if (!sender.isOp()) {
+            sender.sendMessage(ChatColor.RED + "No tienes permiso para usar este comando");
+            return true;
+        }
+
+        List<Material> all = new ArrayList<>();
+        all.addAll(BingoItemsConfig.getEnabledItems());
+        all.addAll(BingoItemsConfig.getDisabledItems());
+
+        final int perPage = 200;
+        final int perRow  = 8;
+        int totalPages = (int) Math.ceil(all.size() / (double) perPage);
+
+        int page = 1;
+        if (args.length >= 3) {
+            try {
+                page = Integer.parseInt(args[2]);
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ChatColor.RED + "Usa: /bingo card sprites <página> (1-" + totalPages + ")");
+                return true;
+            }
+        }
+
+        if (page < 1 || page > totalPages) {
+            sender.sendMessage(ChatColor.RED + "Página inválida. Rango: 1-" + totalPages);
+            return true;
+        }
+
+        int from = (page - 1) * perPage;
+        int to   = Math.min(from + perPage, all.size());
+
+        player.sendMessage(net.kyori.adventure.text.Component.text(
+                "═══ Sprites [" + page + "/" + totalPages + "] (" + (from + 1) + "-" + to + " de " + all.size() + ") ═══")
+                .color(net.kyori.adventure.text.format.NamedTextColor.GOLD));
+        player.sendMessage(net.kyori.adventure.text.Component.empty());
+
+        for (int i = from; i < to; i += perRow) {
+            net.kyori.adventure.text.TextComponent.Builder line = net.kyori.adventure.text.Component.text();
+            int end = Math.min(i + perRow, to);
+            for (int j = i; j < end; j++) {
+                Material m = all.get(j);
+                net.kyori.adventure.text.Component sprite = net.kyori.adventure.text.Component
+                        .text(String.valueOf(BingoItemsConfig.getItemChar(m)))
+                        .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                                net.kyori.adventure.text.Component.text(m.name().toLowerCase())));
+                line.append(sprite);
+                if (j < end - 1) line.append(net.kyori.adventure.text.Component.text(" "));
+            }
+            player.sendMessage(line.build());
+            player.sendMessage(net.kyori.adventure.text.Component.empty());
+        }
+
+        if (page < totalPages) {
+            player.sendMessage(net.kyori.adventure.text.Component.text(
+                    "Siguiente: /bingo card sprites " + (page + 1))
+                    .color(net.kyori.adventure.text.format.NamedTextColor.GRAY));
+        }
+        return true;
+    }
+
+    private boolean openCardEditor(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Solo los jugadores pueden usar este comando");
+            return true;
+        }
+        if (!sender.isOp()) {
+            sender.sendMessage(ChatColor.RED + "No tienes permiso para usar este comando");
+            return true;
+        }
+        if (BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No se puede editar la tarjeta con una partida en curso");
+            return true;
+        }
+        player.openInventory(new BingoCardEditor().getInventory());
+        return true;
+    }
+
+    private boolean randomCard(CommandSender sender) {
+        if (!sender.isOp()) {
+            sender.sendMessage(ChatColor.RED + "No tienes permiso para usar este comando");
+            return true;
+        }
+        if (BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No se puede cambiar la tarjeta con una partida en curso");
+            return true;
+        }
+        BingoCard.generateRandomCard();
+        BingoScoreboard.refreshCardDisplay();
+        sender.sendMessage(ChatColor.GREEN + "✔ Tarjeta aleatoria generada");
+        sender.sendMessage(ChatColor.GRAY + "Items: " + ChatColor.WHITE +
+                BingoCard.getActiveCard().stream()
+                        .map(m -> m.name().toLowerCase())
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse(""));
+        return true;
+    }
+
+    private boolean resetCard(CommandSender sender) {
+        if (!sender.isOp()) {
+            sender.sendMessage(ChatColor.RED + "No tienes permiso para usar este comando");
+            return true;
+        }
+        if (BingoTimer.isRunning()) {
+            sender.sendMessage(ChatColor.RED + "No se puede cambiar la tarjeta con una partida en curso");
+            return true;
+        }
+        BingoCard.resetToDefault();
+        BingoScoreboard.refreshCardDisplay();
+        sender.sendMessage(ChatColor.GREEN + "✔ Tarjeta restablecida a la configuración por defecto");
         return true;
     }
 
@@ -908,10 +1068,9 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
                     break;
 
                 case "card":
-                    List<String> cardCommands = Arrays.asList("show", "show_everyone", "restart", "give_item", "remove_item");
+                    List<String> cardCommands = Arrays.asList("show", "show_everyone", "restart", "give_item", "remove_item", "random", "reset", "edit", "chat", "sprites");
                     if (!isOp) {
-                        // Solo jugadores no-OP pueden usar "show"
-                        cardCommands = Arrays.asList("show");
+                        cardCommands = Arrays.asList("show", "chat");
                     }
                     completions.addAll(filterCompletions(cardCommands, args[1]));
                     break;
@@ -1064,7 +1223,7 @@ public class BingoCommands implements CommandExecutor, TabCompleter {
     }
 
     private List<String> getBingoItemsFiltered(String input) {
-        List<String> itemNames = BingoCard.getBingoItems().stream()
+        List<String> itemNames = BingoCard.getActiveCard().stream()
                 .map(material -> material.name().toLowerCase())
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 

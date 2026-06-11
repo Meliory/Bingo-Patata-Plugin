@@ -1,0 +1,11 @@
+{
+  "pack": {
+    "description": {
+      "text": "RP Bingo Patata T.7",
+      "type": "text",
+      "color": "#d1b529",
+      "bold": true
+    },
+    "pack_format": 63
+  }
+}

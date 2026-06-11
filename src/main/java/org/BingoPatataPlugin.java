@@ -15,6 +15,9 @@ public final class BingoPatataPlugin extends JavaPlugin {
         // Cargar configuración
         saveDefaultConfig();
         BingoConfig.loadConfig(getConfig());
+        BingoItemsConfig.loadOrGenerate(this);
+        BingoCard.initialize();
+        BingoFontGenerator.generate(this);
         MessageManager.loadMessages();
 
         // Cargar equipos guardados

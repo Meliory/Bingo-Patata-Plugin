@@ -68,7 +68,7 @@ public class BingoData {
         int points = 0;
 
         Set<Material> teamItems = teamsItems.getOrDefault(team.getName(), new HashSet<>());
-        List<Material> bingoItems = BingoCard.getBingoItems();
+        List<Material> bingoItems = BingoCard.getActiveCard();
 
         if(teamItems != null){
             //Suma de puntos x item (+1 por item)

@@ -24,20 +24,6 @@ public class BingoScoreboard {
     // Task para actualización periódica
     private static BukkitRunnable periodicUpdateTask;
 
-    //Mapeo de materiales a caracteres Unicode
-    private static final Map<Material, String> ITEM_CHARS = new HashMap<>();
-    private static final Map<Material, String> ITEM_CHARS_DONE = new HashMap<>();
-
-    static {
-        List<Material> bingoItems = BingoCard.getBingoItems();
-        int i = 1;
-        for(Material bingoItem : bingoItems) {
-            ITEM_CHARS.put(bingoItem, String.valueOf((char)(0xE000 + i)));
-            i++;
-            ITEM_CHARS_DONE.put(bingoItem, String.valueOf((char)(0xE000 + i)));
-            i++;
-        }
-    }
 
     public static void showBingoCard(Player player) {
         hideBingoCard(player);
@@ -241,7 +227,7 @@ public class BingoScoreboard {
 
             Set<Material> teamItems = BingoData.getTeamItems(team);
             int teamPoints = BingoData.getTeamPoints(team);
-            List<Material> bingoItems = BingoCard.getBingoItems();
+            List<Material> bingoItems = BingoCard.getActiveCard();
 
             int score = 40;
 
@@ -264,10 +250,10 @@ public class BingoScoreboard {
 
             for(int j = 1; j <= 5; j++) {
                 Material item = bingoItems.get(j + (5 * i) - 1);
+                itemLine.append(BingoItemsConfig.getItemChar(item));
                 if (teamItems.contains(item)) {
-                    itemLine.append(ITEM_CHARS_DONE.get(item));
-                } else {
-                    itemLine.append(ITEM_CHARS.get(item));
+                    itemLine.append(BingoItemsConfig.NEGATIVE_SPACER);
+                    itemLine.append(BingoItemsConfig.DONE_OVERLAY);
                 }
                 itemLine.append(" ");
             }
@@ -415,6 +401,12 @@ public class BingoScoreboard {
             periodicUpdateTask.cancel();
             periodicUpdateTask = null;
             Bukkit.getLogger().info("[BingoScoreboard] Actualización periódica de scoreboards detenida");
+        }
+    }
+
+    public static void refreshCardDisplay() {
+        for (Team team : new ArrayList<>(teamScoreboards.keySet())) {
+            rebuildTeamScoreboard(team);
         }
     }
 
